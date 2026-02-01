@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Sparkles, Mail, Lock, User, Briefcase, KeyRound, CheckCircle, ArrowLeft, X } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { generateResetCodeEmail } from '../services/geminiService';
+import { fetchGoogleUserInfo, extractBusinessName } from '../services/googleAuthService';
+
+const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '') as string;
+const HAS_GOOGLE_AUTH = !!GOOGLE_CLIENT_ID;
 
 interface LoginViewProps {
   onLogin: () => void;
@@ -35,16 +40,56 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
     }
   }, [notification]);
 
-  const handleGoogleLogin = () => {
+  const handleGoogleSuccess = async (tokenResponse: any) => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      // Fetch user info from Google
+      const userInfo = await fetchGoogleUserInfo(tokenResponse.access_token);
+      
       setIsLoading(false);
       if (mode === 'signup') {
-         onSignup("Google User", "My New Business", "user@gmail.com");
+        const businessName = extractBusinessName(userInfo.email, userInfo.name);
+        onSignup(userInfo.name, businessName, userInfo.email);
       } else {
-         onLogin();
+        // For sign in, we can use the user info to authenticate
+        // In a real app, you'd verify the token with your backend
+        onLogin();
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Google authentication error:', error);
+      setIsLoading(false);
+      setNotification({
+        title: "Authentication Error",
+        message: "Failed to authenticate with Google. Please try again."
+      });
+    }
+  };
+
+  const handleGoogleError = () => {
+    setIsLoading(false);
+    setNotification({
+      title: "Authentication Cancelled",
+      message: "Google sign-in was cancelled or failed."
+    });
+  };
+
+  // Always call the hook (React hooks must be called unconditionally)
+  // But only use it if Google Auth is configured
+  const googleLogin = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: handleGoogleError,
+  });
+
+  const handleGoogleLogin = () => {
+    if (!HAS_GOOGLE_AUTH) {
+      setNotification({
+        title: "Google Auth Not Configured",
+        message: "Please set VITE_GOOGLE_CLIENT_ID in your .env.local file to enable Google Sign-In."
+      });
+      return;
+    }
+    setIsLoading(true);
+    googleLogin();
   };
 
   const handleSigninSignupSubmit = (e: React.FormEvent) => {
@@ -141,7 +186,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden rounded-sm">
       {/* Background Ambience */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/10 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-zinc-800/20 blur-[120px] rounded-full pointer-events-none"></div>
@@ -170,11 +215,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
       <div className="w-full max-w-md relative z-10 animate-fade-in-up">
         
         {/* Logo Section */}
-        <div className="text-center mb-12">
-           <div className="w-16 h-16 bg-orange-600 mx-auto flex items-center justify-center text-3xl font-bold text-black mb-6 shadow-[0_0_30px_rgba(234,88,12,0.4)]">
+        <div className="text-center mb-8">
+           <div className="w-12 h-12 bg-orange-600 mx-auto flex items-center justify-center text-2xl font-bold text-black mb-4 shadow-[0_0_30px_rgba(234,88,12,0.4)]">
              H
            </div>
-           <h1 className="text-4xl font-bold text-white uppercase tracking-widest mb-2">Halo</h1>
+           <h1 className="text-2xl font-bold text-white uppercase tracking-widest mb-1">Halo</h1>
            <p className="text-zinc-500 uppercase tracking-widest text-xs font-bold">Professional Assistant OS</p>
         </div>
 

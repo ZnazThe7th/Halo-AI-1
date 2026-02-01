@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ViewState, Client, BusinessProfile, Appointment, Expense } from './types';
-import { MOCK_BUSINESS, MOCK_CLIENTS, MOCK_APPOINTMENTS } from './constants';
+import { DEFAULT_BUSINESS } from './constants';
 import Dashboard from './components/Dashboard';
 import BookingForm from './components/BookingForm';
 import ClientProfile from './components/ClientProfile';
@@ -12,7 +12,7 @@ import MyBusinessView from './components/MyBusinessView';
 import LoginView from './components/LoginView';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
-import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -22,9 +22,9 @@ const App: React.FC = () => {
   const [linkCopied, setLinkCopied] = useState(false);
   
   // App State
-  const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(MOCK_BUSINESS);
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
-  const [appointments, setAppointments] = useState<Appointment[]>(MOCK_APPOINTMENTS);
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(DEFAULT_BUSINESS);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
   // Chat State
@@ -48,18 +48,16 @@ const App: React.FC = () => {
   const handleSignup = (name: string, businessName: string, email: string) => {
       // Create new profile based on sign up info
       const newProfile: BusinessProfile = {
-          ...MOCK_BUSINESS,
+          ...DEFAULT_BUSINESS,
           ownerName: name,
           name: businessName,
-          email: email, // Store the signup email
-          // Reset data for new user simulation
-          services: [],
+          email: email,
       };
       
       setBusinessProfile(newProfile);
-      setAppointments([]); // Clear appointments for new user
-      setClients([]); // Clear clients for new user
-      setExpenses([]); // Clear expenses for new user
+      setAppointments([]);
+      setClients([]);
+      setExpenses([]);
 
       setIsAuthenticated(true);
       setShowOnboarding(true);
@@ -133,6 +131,9 @@ const App: React.FC = () => {
       setTimeout(() => setLinkCopied(false), 3000);
   };
 
+  // State for login modal
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
   // 1. Check for Public View first (Booking Form) - accessible without auth
   if (currentView === ViewState.BOOKING_PUBLIC) {
       return (
@@ -141,22 +142,6 @@ const App: React.FC = () => {
             onBackToAdmin={() => setCurrentView(ViewState.DASHBOARD)} 
             onBookAppointment={handlePublicBooking}
         />
-      );
-  }
-
-  // 2. Check Authentication
-  if (!isAuthenticated) {
-    return <LoginView onLogin={handleLogin} onSignup={handleSignup} />;
-  }
-
-  // 3. Check Onboarding
-  if (showOnboarding) {
-      return (
-          <OnboardingTutorial 
-            ownerName={businessProfile.ownerName} 
-            businessName={businessProfile.name}
-            onComplete={() => setShowOnboarding(false)} 
-          />
       );
   }
 
@@ -302,6 +287,35 @@ const App: React.FC = () => {
       <main className="flex-1 ml-20 lg:ml-72 bg-zinc-50 dark:bg-black min-h-screen relative overflow-auto transition-colors duration-300">
          {/* Background accent element */}
          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/5 blur-[150px] pointer-events-none"></div>
+         
+         {/* Top Right Sign In/Out Button */}
+         <div className="absolute top-4 right-4 z-30">
+           {isAuthenticated ? (
+             <div className="flex items-center gap-3">
+               {businessProfile.email && (
+                 <span className="hidden md:block text-sm text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+                   {businessProfile.email}
+                 </span>
+               )}
+               <button
+                 onClick={handleLogout}
+                 className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-700"
+               >
+                 <LogOut className="w-4 h-4" />
+                 <span>Sign Out</span>
+               </button>
+             </div>
+           ) : (
+             <button
+               onClick={() => setShowLoginModal(true)}
+               className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-black hover:bg-white transition-colors uppercase text-xs font-bold tracking-widest shadow-lg"
+             >
+               <LogIn className="w-4 h-4" />
+               <span>Sign In</span>
+             </button>
+           )}
+         </div>
+
         {renderContent()}
       </main>
 
@@ -325,6 +339,32 @@ const App: React.FC = () => {
         onAddClient={handleAddClient}
         onAddAppointment={handleAddAppointment}
       />
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowLoginModal(false)}>
+          <div className="relative w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowLoginModal(false)}
+              className="absolute -top-12 right-0 text-white hover:text-orange-600 transition-colors text-sm uppercase tracking-widest font-bold z-10"
+            >
+              Close
+            </button>
+            <div className="relative">
+              <LoginView 
+                onLogin={() => {
+                  handleLogin();
+                  setShowLoginModal(false);
+                }} 
+                onSignup={(name, businessName, email) => {
+                  handleSignup(name, businessName, email);
+                  setShowLoginModal(false);
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

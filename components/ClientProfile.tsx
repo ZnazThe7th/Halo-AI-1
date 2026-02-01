@@ -31,8 +31,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client, onBack, onUpdateC
 
   const handleDraftFollowUp = async () => {
     setLoadingDraft(true);
-    // Simulating last service context
-    const msg = await generateFollowUpMessage(client.name, "Signature Haircut", "Added layers, used Moroccan Oil.");
+    // Generate follow-up message (service and notes would come from last appointment in real implementation)
+    const msg = await generateFollowUpMessage(client.name, "Service", "Appointment notes");
     setFollowUpDraft(msg);
     setLoadingDraft(false);
     setSmsSent(false); // Reset sent state if new draft
