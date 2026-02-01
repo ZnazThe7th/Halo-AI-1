@@ -212,7 +212,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 right-8 z-50 w-96 h-[600px] flex flex-col bg-zinc-950 border border-zinc-800 shadow-2xl animate-in slide-in-from-bottom-5 duration-300 rounded-sm overflow-hidden font-sans">
+    <div className="fixed inset-0 lg:inset-auto lg:bottom-24 lg:right-8 lg:z-50 lg:w-96 lg:h-[600px] z-50 flex flex-col bg-zinc-950 border-0 lg:border border-zinc-800 shadow-2xl lg:rounded-sm overflow-hidden font-sans">
         
         {/* Header */}
         <div className="p-4 border-b border-zinc-800 bg-black flex justify-between items-center">

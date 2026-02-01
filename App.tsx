@@ -12,7 +12,7 @@ import MyBusinessView from './components/MyBusinessView';
 import LoginView from './components/LoginView';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
-import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // App State
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(DEFAULT_BUSINESS);
@@ -208,88 +209,133 @@ const App: React.FC = () => {
   // Admin Layout (Only renders if authenticated)
   return (
     <div className="min-h-screen flex font-sans text-zinc-900 dark:text-white bg-zinc-50 dark:bg-black transition-colors duration-300">
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-20 lg:w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col fixed h-full z-20 transition-all duration-300">
-        <div className="p-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-600 flex items-center justify-center font-bold text-xl text-black rounded-sm overflow-hidden">
-             {businessProfile.avatarUrl ? (
-                 <img src={businessProfile.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
-             ) : (
-                 "H"
-             )}
+      <aside className={`w-20 lg:w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col fixed h-full z-30 transition-all duration-300 ${
+        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
+        <div className="p-4 lg:p-8 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-600 flex items-center justify-center font-bold text-xl text-black rounded-sm overflow-hidden">
+               {businessProfile.avatarUrl ? (
+                   <img src={businessProfile.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
+               ) : (
+                   "H"
+               )}
+            </div>
+            <span className="font-bold text-2xl uppercase tracking-widest hidden lg:block dark:text-white text-zinc-900">Halo</span>
           </div>
-          <span className="font-bold text-2xl uppercase tracking-widest hidden lg:block dark:text-white text-zinc-900">Halo</span>
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="lg:hidden text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+          >
+            <XIcon className="w-6 h-6" />
+          </button>
         </div>
 
-        <nav className="flex-1 mt-8 px-4 space-y-2">
+        <nav className="flex-1 mt-4 lg:mt-8 px-2 lg:px-4 space-y-1 lg:space-y-2">
           <button 
-            onClick={() => setCurrentView(ViewState.DASHBOARD)}
-            className={`w-full flex items-center gap-4 p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.DASHBOARD ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+            onClick={() => {
+              setCurrentView(ViewState.DASHBOARD);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.DASHBOARD ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="hidden lg:block font-medium uppercase tracking-wide text-sm">Dashboard</span>
+            <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium uppercase tracking-wide text-sm">Dashboard</span>
           </button>
           
           <button 
-            onClick={() => { setSelectedClient(null); setCurrentView(ViewState.CLIENTS); }}
-            className={`w-full flex items-center gap-4 p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.CLIENTS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+            onClick={() => {
+              setSelectedClient(null);
+              setCurrentView(ViewState.CLIENTS);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.CLIENTS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
-            <Users className="w-5 h-5" />
-            <span className="hidden lg:block font-medium uppercase tracking-wide text-sm">Clients</span>
+            <Users className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium uppercase tracking-wide text-sm">Clients</span>
           </button>
 
           <button 
-            onClick={() => setCurrentView(ViewState.CALENDAR)}
-            className={`w-full flex items-center gap-4 p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.CALENDAR ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+            onClick={() => {
+              setCurrentView(ViewState.CALENDAR);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.CALENDAR ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
-            <CalendarIcon className="w-5 h-5" />
-            <span className="hidden lg:block font-medium uppercase tracking-wide text-sm">Calendar</span>
+            <CalendarIcon className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium uppercase tracking-wide text-sm">Calendar</span>
           </button>
           
           <button 
-            onClick={() => setCurrentView(ViewState.MY_BUSINESS)}
-            className={`w-full flex items-center gap-4 p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.MY_BUSINESS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+            onClick={() => {
+              setCurrentView(ViewState.MY_BUSINESS);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.MY_BUSINESS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
-            <Briefcase className="w-5 h-5" />
-            <span className="hidden lg:block font-medium uppercase tracking-wide text-sm">My Business</span>
+            <Briefcase className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium uppercase tracking-wide text-sm">My Business</span>
           </button>
 
           <button 
-            onClick={() => setCurrentView(ViewState.SETTINGS)}
-            className={`w-full flex items-center gap-4 p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.SETTINGS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+            onClick={() => {
+              setCurrentView(ViewState.SETTINGS);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.SETTINGS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
-            <Settings className="w-5 h-5" />
-            <span className="hidden lg:block font-medium uppercase tracking-wide text-sm">Settings</span>
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium uppercase tracking-wide text-sm">Settings</span>
           </button>
         </nav>
 
         {/* Public Booking Actions */}
-        <div className="p-6 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
+        <div className="p-4 lg:p-6 border-t border-zinc-200 dark:border-zinc-800 space-y-2 lg:space-y-3">
              <button 
                 onClick={handleCopyLink}
                 className="w-full flex items-center justify-center lg:justify-start gap-3 p-3 bg-zinc-800 dark:bg-zinc-900 text-white hover:bg-zinc-700 transition-colors uppercase font-bold text-xs tracking-widest border border-zinc-700 relative overflow-hidden group"
              >
-                {linkCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                <span className="hidden lg:block">{linkCopied ? 'Copied' : 'Copy Booking Link'}</span>
+                {linkCopied ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
+                <span>{linkCopied ? 'Copied' : 'Copy Booking Link'}</span>
                 {linkCopied && <div className="absolute inset-x-0 bottom-0 h-0.5 bg-green-500"></div>}
             </button>
              <button 
-                onClick={() => setCurrentView(ViewState.BOOKING_PUBLIC)}
+                onClick={() => {
+                  setCurrentView(ViewState.BOOKING_PUBLIC);
+                  setIsMobileMenuOpen(false);
+                }}
                 className="w-full flex items-center justify-center lg:justify-start gap-3 p-3 bg-orange-600 text-black hover:bg-white transition-colors uppercase font-bold text-xs tracking-widest shadow-lg"
              >
-                <Globe className="w-4 h-4" />
-                <span className="hidden lg:block">Preview Page</span>
+                <Globe className="w-4 h-4 flex-shrink-0" />
+                <span>Preview Page</span>
             </button>
         </div>
       </aside>
 
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="fixed top-4 left-4 z-30 lg:hidden w-10 h-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Main Content Area */}
-      <main className="flex-1 ml-20 lg:ml-72 bg-zinc-50 dark:bg-black min-h-screen relative overflow-auto transition-colors duration-300">
+      <main className="flex-1 lg:ml-20 lg:ml-72 bg-zinc-50 dark:bg-black min-h-screen relative overflow-auto transition-colors duration-300 pt-16 lg:pt-0">
          {/* Background accent element */}
          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/5 blur-[150px] pointer-events-none"></div>
          
          {/* Top Right Sign In/Out Button */}
-         <div className="absolute top-4 right-4 z-30">
+         <div className="fixed lg:absolute top-4 right-4 z-30">
            {isAuthenticated ? (
              <div className="flex items-center gap-3">
                {businessProfile.email && (
@@ -299,33 +345,35 @@ const App: React.FC = () => {
                )}
                <button
                  onClick={handleLogout}
-                 className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-700"
+                 className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-700"
                >
-                 <LogOut className="w-4 h-4" />
-                 <span>Sign Out</span>
+                 <LogOut className="w-4 h-4 flex-shrink-0" />
+                 <span className="hidden sm:inline">Sign Out</span>
                </button>
              </div>
            ) : (
              <button
                onClick={() => setShowLoginModal(true)}
-               className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-black hover:bg-white transition-colors uppercase text-xs font-bold tracking-widest shadow-lg"
+               className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-orange-600 text-black hover:bg-white transition-colors uppercase text-xs font-bold tracking-widest shadow-lg"
              >
-               <LogIn className="w-4 h-4" />
-               <span>Sign In</span>
+               <LogIn className="w-4 h-4 flex-shrink-0" />
+               <span className="hidden sm:inline">Sign In</span>
              </button>
            )}
          </div>
 
-        {renderContent()}
+        <div className="p-4 lg:p-8">
+          {renderContent()}
+        </div>
       </main>
 
       {/* Floating AI Chat Button */}
       {!isChatOpen && (
           <button 
             onClick={() => setIsChatOpen(true)}
-            className="fixed bottom-8 right-8 z-50 w-14 h-14 bg-orange-600 hover:bg-white text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,88,12,0.4)] flex items-center justify-center rounded-full group animate-bounce-slow"
+            className="fixed bottom-4 right-4 lg:bottom-8 lg:right-8 z-50 w-12 h-12 lg:w-14 lg:h-14 bg-orange-600 hover:bg-white text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,88,12,0.4)] flex items-center justify-center rounded-full group"
           >
-            <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+            <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 group-hover:rotate-12 transition-transform" />
           </button>
       )}
 
@@ -342,11 +390,11 @@ const App: React.FC = () => {
 
       {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowLoginModal(false)}>
-          <div className="relative w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowLoginModal(false)}>
+          <div className="relative w-full max-w-md my-auto" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setShowLoginModal(false)}
-              className="absolute -top-12 right-0 text-white hover:text-orange-600 transition-colors text-sm uppercase tracking-widest font-bold z-10"
+              className="absolute -top-10 lg:-top-12 right-0 text-white hover:text-orange-600 transition-colors text-sm uppercase tracking-widest font-bold z-10 p-2"
             >
               Close
             </button>

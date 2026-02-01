@@ -49,10 +49,10 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddC
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <header className="mb-10 border-b border-zinc-800 pb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <header className="mb-6 lg:mb-10 border-b border-zinc-800 pb-4 lg:pb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4 lg:gap-6">
         <div>
-          <h1 className="text-4xl font-bold text-white uppercase tracking-wider mb-2">Client Roster</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white uppercase tracking-wider mb-2">Client Roster</h1>
           <p className="text-zinc-500">Manage your relationships and history.</p>
         </div>
         <button 
@@ -80,27 +80,30 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddC
             <table className="w-full text-left">
                 <thead className="bg-black border-b border-zinc-800">
                     <tr>
-                        <th className="p-6 text-xs font-bold uppercase tracking-widest text-zinc-500">Name</th>
-                        <th className="p-6 text-xs font-bold uppercase tracking-widest text-zinc-500">Contact</th>
-                        <th className="p-6 text-xs font-bold uppercase tracking-widest text-zinc-500">Last Visit</th>
-                        <th className="p-6 text-xs font-bold uppercase tracking-widest text-zinc-500">Action</th>
+                        <th className="p-3 sm:p-4 lg:p-6 text-xs font-bold uppercase tracking-widest text-zinc-500">Name</th>
+                        <th className="p-3 sm:p-4 lg:p-6 text-xs font-bold uppercase tracking-widest text-zinc-500 hidden sm:table-cell">Contact</th>
+                        <th className="p-3 sm:p-4 lg:p-6 text-xs font-bold uppercase tracking-widest text-zinc-500 hidden md:table-cell">Last Visit</th>
+                        <th className="p-3 sm:p-4 lg:p-6 text-xs font-bold uppercase tracking-widest text-zinc-500">Action</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
                     {filteredClients.length > 0 ? filteredClients.map(client => (
                         <tr key={client.id} className="hover:bg-zinc-800/50 transition-colors group">
-                            <td className="p-6 font-medium text-white text-lg flex items-center gap-3">
-                                <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center text-zinc-500 font-bold text-xs border border-zinc-700">
+                            <td className="p-3 sm:p-4 lg:p-6 font-medium text-white text-base sm:text-lg flex items-center gap-2 sm:gap-3">
+                                <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center text-zinc-500 font-bold text-xs border border-zinc-700 flex-shrink-0">
                                     {client.name.charAt(0)}
                                 </div>
-                                {client.name}
+                                <div className="min-w-0">
+                                  <div className="truncate">{client.name}</div>
+                                  <div className="text-xs text-zinc-500 sm:hidden mt-1">{client.email}</div>
+                                </div>
                             </td>
-                            <td className="p-6 text-sm text-zinc-400">
-                                <div className="text-white mb-1 flex items-center gap-2"><Mail className="w-3 h-3 text-zinc-600"/> {client.email}</div>
-                                <div className="text-zinc-500 font-mono flex items-center gap-2"><Phone className="w-3 h-3 text-zinc-600"/> {client.phone}</div>
+                            <td className="p-3 sm:p-4 lg:p-6 text-sm text-zinc-400 hidden sm:table-cell">
+                                <div className="text-white mb-1 flex items-center gap-2"><Mail className="w-3 h-3 text-zinc-600 flex-shrink-0"/> <span className="truncate">{client.email}</span></div>
+                                <div className="text-zinc-500 font-mono flex items-center gap-2"><Phone className="w-3 h-3 text-zinc-600 flex-shrink-0"/> {client.phone}</div>
                             </td>
-                            <td className="p-6 text-sm text-zinc-400 font-mono">{client.lastVisit || 'N/A'}</td>
-                            <td className="p-6 flex items-center gap-6">
+                            <td className="p-3 sm:p-4 lg:p-6 text-sm text-zinc-400 font-mono hidden md:table-cell">{client.lastVisit || 'N/A'}</td>
+                            <td className="p-3 sm:p-4 lg:p-6 flex items-center gap-3 sm:gap-6">
                                 <button 
                                     onClick={() => onSelectClient(client)}
                                     className="text-white font-medium text-sm flex items-center gap-2 group-hover:text-orange-500 transition-colors uppercase tracking-wide"

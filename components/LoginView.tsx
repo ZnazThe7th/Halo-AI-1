@@ -186,7 +186,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   };
 
   return (
-    <div className="bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden rounded-sm">
+    <div className="bg-black flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden rounded-sm">
       {/* Background Ambience */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/10 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-zinc-800/20 blur-[120px] rounded-full pointer-events-none"></div>

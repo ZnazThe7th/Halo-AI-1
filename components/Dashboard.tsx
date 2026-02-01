@@ -142,71 +142,71 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
 
     return (
-        <div className="p-8 space-y-8 max-w-7xl mx-auto">
-            <header className="flex justify-between items-end border-b border-zinc-200 dark:border-zinc-800 pb-8 transition-colors">
+        <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 max-w-7xl mx-auto">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 lg:pb-8 transition-colors">
                 <div>
-                    <h1 className="text-5xl font-bold text-zinc-900 dark:text-white uppercase tracking-tighter mb-2 transition-colors">Made for <span className="text-zinc-400 dark:text-zinc-500">Real Work</span></h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 max-w-md">Welcome back, {business.ownerName}. Your daily overview is ready.</p>
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-zinc-900 dark:text-white uppercase tracking-tighter mb-2 transition-colors">Made for <span className="text-zinc-400 dark:text-zinc-500">Real Work</span></h1>
+                    <p className="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 max-w-md">Welcome back, {business.ownerName}. Your daily overview is ready.</p>
                 </div>
-                <div className="text-right hidden sm:block">
+                <div className="text-left sm:text-right">
                     <p className="text-xs font-bold text-orange-600 dark:text-orange-500 uppercase tracking-widest mb-1">System Time</p>
-                    <p className="text-2xl font-mono font-bold text-zinc-900 dark:text-white transition-colors">{new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true})}</p>
+                    <p className="text-xl sm:text-2xl font-mono font-bold text-zinc-900 dark:text-white transition-colors">{new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true})}</p>
                 </div>
             </header>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 flex flex-col justify-between group hover:border-orange-600 dark:hover:border-orange-600 transition-colors duration-300 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between group hover:border-orange-600 dark:hover:border-orange-600 transition-colors duration-300 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Today's Load</p>
                         <Calendar className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
-                         <p className="text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">{todayAppointments.filter(a => a.status !== AppointmentStatus.BLOCKED).length}</p>
+                         <p className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">{todayAppointments.filter(a => a.status !== AppointmentStatus.BLOCKED).length}</p>
                          <p className="text-sm text-zinc-500">Appointments scheduled</p>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 flex flex-col justify-between group hover:border-blue-500 transition-colors duration-300 shadow-sm">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between group hover:border-blue-500 transition-colors duration-300 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Today's Revenue</p>
                         <TrendingUp className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
-                         <p className="text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">${todayRevenue}</p>
+                         <p className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">${todayRevenue}</p>
                          <p className="text-sm text-zinc-500">Earned today</p>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 flex flex-col justify-between group hover:border-emerald-600 transition-colors duration-300 shadow-sm">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between group hover:border-emerald-600 transition-colors duration-300 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Gross Revenue</p>
                         <DollarSign className="w-5 h-5 text-emerald-500" />
                     </div>
                     <div>
-                         <p className="text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">${revenueEst}</p>
+                         <p className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">${revenueEst}</p>
                          <p className="text-sm text-zinc-500">Total collected (All time)</p>
                     </div>
                 </div>
 
-                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 flex flex-col justify-between group hover:border-yellow-500 transition-colors duration-300 shadow-sm">
+                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between group hover:border-yellow-500 transition-colors duration-300 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Rating</p>
                         <Star className="w-5 h-5 text-yellow-500" />
                     </div>
                     <div>
-                         <p className="text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">4.9</p>
+                         <p className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">4.9</p>
                          <p className="text-sm text-zinc-500">Based on last 30 days</p>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
                 
                 {/* Main Content: Today's Schedule */}
-                <div className="lg:col-span-2 space-y-8">
+                <div className="lg:col-span-2 space-y-4 lg:space-y-8">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm transition-colors">
-                        <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+                        <div className="p-4 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-wider transition-colors">Today's Schedule</h2>
                             <button 
                                 onClick={onNavigateToCalendar}
@@ -222,8 +222,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 const isBlocked = appt.status === AppointmentStatus.BLOCKED;
 
                                 return (
-                                <div key={appt.id} className="p-6 flex items-center gap-6 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer group relative">
-                                    <div className="flex flex-col items-center min-w-[60px] border-r border-zinc-200 dark:border-zinc-800 pr-6">
+                                <div key={appt.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer group relative">
+                                    <div className="flex flex-row sm:flex-col items-center gap-2 sm:gap-0 min-w-[60px] border-b sm:border-b-0 sm:border-r border-zinc-200 dark:border-zinc-800 pb-4 sm:pb-0 sm:pr-6 w-full sm:w-auto">
                                         <span className={`text-lg font-bold font-mono ${isBlocked ? 'text-zinc-400' : 'text-zinc-900 dark:text-white'}`}>{timeStr}</span>
                                         <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">{ampm}</span>
                                     </div>
