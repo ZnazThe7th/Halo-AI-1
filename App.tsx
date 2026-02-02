@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ViewState, Client, BusinessProfile, Appointment, Expense } from './types';
+import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating } from './types';
 import { DEFAULT_BUSINESS } from './constants';
 import Dashboard from './components/Dashboard';
 import BookingForm from './components/BookingForm';
@@ -13,6 +13,7 @@ import LoginView from './components/LoginView';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
 import HaloLogo from './components/HaloLogo';
+import RatingPage from './components/RatingPage';
 import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -28,9 +29,26 @@ const App: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [ratings, setRatings] = useState<ClientRating[]>([]);
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Check for rating page URL on mount
+  useEffect(() => {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    
+    // Check if we're on a rating page: /rate/:appointmentId?token=...
+    if (path.startsWith('/rate/')) {
+      const appointmentId = path.split('/rate/')[1]?.split('?')[0];
+      const token = params.get('token');
+      
+      if (appointmentId && token) {
+        setCurrentView(ViewState.RATING_PAGE);
+      }
+    }
+  }, []);
 
   // Apply Theme Effect
   useEffect(() => {
@@ -89,8 +107,45 @@ const App: React.FC = () => {
     setClients(prev => prev.filter(c => c.id !== clientId));
   };
 
-  const handleUpdateAppointment = (updatedAppt: Appointment) => {
+  const handleUpdateAppointment = async (updatedAppt: Appointment) => {
+    // Check if appointment was just completed
+    const previousAppt = appointments.find(a => a.id === updatedAppt.id);
+    const wasJustCompleted = previousAppt?.status !== AppointmentStatus.COMPLETED && 
+                             updatedAppt.status === AppointmentStatus.COMPLETED;
+
     setAppointments(prev => prev.map(a => a.id === updatedAppt.id ? updatedAppt : a));
+
+    // Send rating email if appointment was just completed
+    if (wasJustCompleted) {
+      const client = clients.find(c => c.id === updatedAppt.clientId);
+      if (client && client.email) {
+        const service = businessProfile.services.find(s => s.id === updatedAppt.serviceId);
+        const ratingLink = `${window.location.origin}/rate/${updatedAppt.id}?token=${encodeURIComponent(btoa(updatedAppt.id + ':' + client.id))}`;
+        
+        // Import and send email (will be handled asynchronously)
+        const { sendEmail, generateRatingEmailHTML } = await import('./services/emailService');
+        const { formatTime } = await import('./constants');
+        
+        const emailSent = await sendEmail({
+          to: client.email,
+          subject: `Rate Your Experience at ${businessProfile.name}`,
+          html: generateRatingEmailHTML(
+            client.name,
+            businessProfile.name,
+            updatedAppt.date,
+            formatTime(updatedAppt.time),
+            service?.name || 'Service',
+            ratingLink
+          )
+        });
+
+        if (emailSent) {
+          console.log(`Rating email sent to ${client.email}`);
+        } else {
+          console.warn(`Failed to send rating email to ${client.email}`);
+        }
+      }
+    }
   };
 
   const handleAddAppointment = (newAppt: Appointment) => {
@@ -107,6 +162,20 @@ const App: React.FC = () => {
 
   const handleDeleteExpense = (id: string) => {
     setExpenses(expenses.filter(e => e.id !== id));
+  };
+
+  const handleAddRating = (rating: Omit<ClientRating, 'id'>) => {
+    const newRating: ClientRating = {
+      ...rating,
+      id: `rating_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+    setRatings([...ratings, newRating]);
+    // Also update the appointment with the rating
+    setAppointments(prev => prev.map(a => 
+      a.id === rating.appointmentId 
+        ? { ...a, rating: newRating } 
+        : a
+    ));
   };
 
   const handlePublicBooking = (newAppt: Appointment, newClient: Client) => {
@@ -136,7 +205,29 @@ const App: React.FC = () => {
   // State for login modal
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // 1. Check for Public View first (Booking Form) - accessible without auth
+  // 1. Check for Rating Page - accessible without auth
+  if (currentView === ViewState.RATING_PAGE) {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    const appointmentId = path.split('/rate/')[1]?.split('?')[0] || '';
+    const token = params.get('token') || '';
+    
+    const appointment = appointments.find(a => a.id === appointmentId);
+    const client = appointment ? clients.find(c => c.id === appointment.clientId) : undefined;
+    
+    return (
+      <RatingPage
+        appointmentId={appointmentId}
+        token={token}
+        appointment={appointment}
+        client={client}
+        business={businessProfile}
+        onSubmitRating={handleAddRating}
+      />
+    );
+  }
+
+  // 2. Check for Public View (Booking Form) - accessible without auth
   if (currentView === ViewState.BOOKING_PUBLIC) {
       return (
         <BookingForm 
@@ -163,6 +254,7 @@ const App: React.FC = () => {
           business={businessProfile} 
           onUpdate={handleUpdateBusiness} 
           onLogout={handleLogout}
+          isAuthenticated={isAuthenticated}
         />;
 
       case ViewState.MY_BUSINESS:
@@ -179,9 +271,12 @@ const App: React.FC = () => {
         if (selectedClient) {
             return (
                 <ClientProfile 
-                    client={selectedClient} 
+                    client={selectedClient}
+                    appointments={appointments}
+                    business={businessProfile}
                     onBack={() => setSelectedClient(null)} 
                     onUpdateClient={handleUpdateClient}
+                    onAddRating={handleAddRating}
                 />
             );
         }
@@ -194,6 +289,7 @@ const App: React.FC = () => {
                 business={businessProfile}
                 onCopyLink={handleCopyLink}
                 linkCopied={linkCopied}
+                isAuthenticated={isAuthenticated}
             />
         );
 
@@ -201,7 +297,8 @@ const App: React.FC = () => {
       default:
         return <Dashboard 
             business={businessProfile} 
-            appointments={appointments} 
+            appointments={appointments}
+            ratings={ratings}
             onViewAllAppointments={() => setCurrentView(ViewState.CLIENTS)} 
             onUpdateAppointment={handleUpdateAppointment}
             onRemoveAppointment={handleRemoveAppointment}
@@ -318,7 +415,7 @@ const App: React.FC = () => {
                 className="w-full flex items-center justify-center lg:justify-start gap-3 p-3 bg-orange-600 text-black hover:bg-white transition-colors uppercase font-bold text-xs tracking-widest shadow-lg"
              >
                 <Globe className="w-4 h-4 flex-shrink-0" />
-                <span>Preview Page</span>
+                <span>Order Page</span>
             </button>
         </div>
       </aside>

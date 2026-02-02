@@ -10,9 +10,10 @@ interface ClientListProps {
   business: BusinessProfile;
   onCopyLink: () => void;
   linkCopied: boolean;
+  isAuthenticated: boolean;
 }
 
-const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddClient, onRemoveClient, business, onCopyLink, linkCopied }) => {
+const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddClient, onRemoveClient, business, onCopyLink, linkCopied, isAuthenticated }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newClient, setNewClient] = useState({
     name: '',
@@ -60,16 +61,34 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddC
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <button 
-            onClick={onCopyLink}
-            className="bg-zinc-800 dark:bg-zinc-900 text-white hover:bg-zinc-700 transition-colors uppercase font-bold text-xs tracking-widest border border-zinc-700 relative overflow-hidden group px-4 py-3 flex items-center justify-center gap-2"
+            onClick={() => {
+              if (!isAuthenticated) {
+                alert('Please sign in to copy the booking link.');
+                return;
+              }
+              onCopyLink();
+            }}
+            disabled={!isAuthenticated}
+            className={`bg-zinc-800 dark:bg-zinc-900 text-white hover:bg-zinc-700 transition-colors uppercase font-bold text-xs tracking-widest border border-zinc-700 relative overflow-hidden group px-4 py-3 flex items-center justify-center gap-2 ${
+              !isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             {linkCopied ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
             <span>{linkCopied ? 'Copied' : 'Copy Booking Link'}</span>
             {linkCopied && <div className="absolute inset-x-0 bottom-0 h-0.5 bg-green-500"></div>}
           </button>
           <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-orange-600 text-black px-6 py-3 font-bold uppercase tracking-widest hover:bg-white transition-colors flex items-center gap-2"
+            onClick={() => {
+              if (!isAuthenticated) {
+                alert('Please sign in to add clients.');
+                return;
+              }
+              setIsAddModalOpen(true);
+            }}
+            disabled={!isAuthenticated}
+            className={`bg-orange-600 text-black px-6 py-3 font-bold uppercase tracking-widest hover:bg-white transition-colors flex items-center gap-2 ${
+              !isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <Plus className="w-4 h-4" /> Add Client
           </button>

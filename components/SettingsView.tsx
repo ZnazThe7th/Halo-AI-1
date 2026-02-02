@@ -7,9 +7,10 @@ interface SettingsViewProps {
   business: BusinessProfile;
   onUpdate: (profile: BusinessProfile) => void;
   onLogout: () => void;
+  isAuthenticated: boolean;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogout }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogout, isAuthenticated }) => {
   // Modal States
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
@@ -142,6 +143,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
           </h2>
           <button 
             onClick={() => {
+              if (!isAuthenticated) {
+                alert('Please sign in to edit your profile.');
+                return;
+              }
               setProfileForm({
                 name: business.name,
                 ownerName: business.ownerName,
@@ -154,7 +159,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
               });
               setIsProfileModalOpen(true);
             }}
-            className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors"
+            disabled={!isAuthenticated}
+            className={`text-zinc-500 hover:text-zinc-900 dark:hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+              !isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <Edit3 className="w-4 h-4" /> Edit Profile
           </button>
@@ -205,8 +213,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
             <DollarSign className="w-5 h-5 text-emerald-500" /> Service Menu
           </h2>
           <button 
-            onClick={openAddService}
-            className="bg-zinc-900 dark:bg-white text-white dark:text-black hover:bg-zinc-700 dark:hover:bg-zinc-200 px-4 py-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors shadow-sm"
+            onClick={() => {
+              if (!isAuthenticated) {
+                alert('Please sign in to add services.');
+                return;
+              }
+              openAddService();
+            }}
+            disabled={!isAuthenticated}
+            className={`bg-zinc-900 dark:bg-white text-white dark:text-black hover:bg-zinc-700 dark:hover:bg-zinc-200 px-4 py-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors shadow-sm ${
+              !isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <Plus className="w-4 h-4" /> Add Service
           </button>

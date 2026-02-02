@@ -6,7 +6,8 @@ export enum ViewState {
   CALENDAR = 'CALENDAR',
   SETTINGS = 'SETTINGS',
   MY_BUSINESS = 'MY_BUSINESS',
-  BOOKING_PUBLIC = 'BOOKING_PUBLIC' // The client-facing view
+  BOOKING_PUBLIC = 'BOOKING_PUBLIC', // The client-facing view
+  RATING_PAGE = 'RATING_PAGE' // Public rating page
 }
 
 export interface Service {
@@ -15,6 +16,14 @@ export interface Service {
   durationMin: number;
   price: number;
   description: string;
+}
+
+export interface Staff {
+  id: string;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface BusinessProfile {
@@ -31,6 +40,7 @@ export interface BusinessProfile {
     start: string; // HH:mm
     end: string;   // HH:mm
   };
+  staff?: Staff[]; // People who work with the business
 }
 
 export interface Client {
@@ -65,6 +75,17 @@ export interface RecurrenceRule {
   endDate?: string; // ISO Date YYYY-MM-DD
 }
 
+export interface ClientRating {
+  id: string;
+  appointmentId: string;
+  clientId: string;
+  businessRating?: number; // 1-5 rating for the business
+  staffRating?: number; // 1-5 rating for the staff member
+  staffId?: string; // Which staff member was rated
+  comment?: string; // Optional feedback comment
+  date: string; // When the rating was submitted
+}
+
 export interface Appointment {
   id: string;
   clientId: string;
@@ -75,6 +96,8 @@ export interface Appointment {
   status: AppointmentStatus;
   notes?: string;
   recurrence?: RecurrenceRule;
+  staffId?: string; // Which staff member is assigned
+  rating?: ClientRating; // Rating for this appointment
 }
 
 export interface AISummaryResponse {

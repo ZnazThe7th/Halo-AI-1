@@ -4,9 +4,10 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '') as string;
+const isValidClientId = GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'your_google_client_id_here' && GOOGLE_CLIENT_ID.trim() !== '';
 
-if (!GOOGLE_CLIENT_ID) {
-  console.warn('⚠️ Google OAuth Client ID not found. Please set VITE_GOOGLE_CLIENT_ID in your .env.local file. Google Sign-In will be disabled.');
+if (!isValidClientId) {
+  console.warn('⚠️ Google OAuth Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env.local file. Google Sign-In will be disabled.');
 }
 
 // Error Boundary Component
@@ -79,10 +80,12 @@ const root = ReactDOM.createRoot(rootElement);
 
 // Always wrap with GoogleOAuthProvider - it handles empty clientId gracefully
 // The LoginView component will show a message if Google Auth isn't configured
-const AppWrapper = (
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || 'dummy-client-id'}>
+const AppWrapper = isValidClientId ? (
+  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <App />
   </GoogleOAuthProvider>
+) : (
+  <App />
 );
 
 root.render(

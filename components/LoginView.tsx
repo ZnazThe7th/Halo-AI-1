@@ -5,7 +5,9 @@ import { generateResetCodeEmail } from '../services/geminiService';
 import { fetchGoogleUserInfo, extractBusinessName } from '../services/googleAuthService';
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '') as string;
-const HAS_GOOGLE_AUTH = !!GOOGLE_CLIENT_ID;
+const HAS_GOOGLE_AUTH = GOOGLE_CLIENT_ID && 
+  GOOGLE_CLIENT_ID !== 'your_google_client_id_here' && 
+  GOOGLE_CLIENT_ID.trim() !== '';
 
 interface LoginViewProps {
   onLogin: () => void;
@@ -65,11 +67,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
     }
   };
 
-  const handleGoogleError = () => {
+  const handleGoogleError = (error: any) => {
     setIsLoading(false);
+    console.error('Google OAuth error:', error);
+    let errorMessage = "Google sign-in was cancelled or failed.";
+    
+    if (error?.error) {
+      if (error.error === 'popup_closed_by_user') {
+        errorMessage = "Sign-in was cancelled.";
+      } else if (error.error === 'access_denied') {
+        errorMessage = "Access was denied. Please try again.";
+      } else {
+        errorMessage = `Authentication error: ${error.error}. Please check your Google OAuth Client ID configuration.`;
+      }
+    }
+    
     setNotification({
-      title: "Authentication Cancelled",
-      message: "Google sign-in was cancelled or failed."
+      title: "Authentication Error",
+      message: errorMessage
     });
   };
 
@@ -78,6 +93,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleSuccess,
     onError: handleGoogleError,
+    flow: 'implicit', // Use implicit flow for frontend-only apps
   });
 
   const handleGoogleLogin = () => {

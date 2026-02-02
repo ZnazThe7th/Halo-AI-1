@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Appointment, BusinessProfile, AppointmentStatus } from '../types';
+import { Appointment, BusinessProfile, AppointmentStatus, ClientRating } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { Calendar, Clock, DollarSign, MoreVertical, Star, ArrowRight, CheckCircle, TrendingUp, Trash2, Edit3, X, Save, Ban } from 'lucide-react';
 import { formatTime } from '../constants';
@@ -8,6 +8,7 @@ import { formatTime } from '../constants';
 interface DashboardProps {
   business: BusinessProfile;
   appointments: Appointment[];
+  ratings: ClientRating[];
   onViewAllAppointments: () => void;
   onUpdateAppointment: (appt: Appointment) => void;
   onRemoveAppointment: (id: string) => void;
@@ -17,6 +18,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ 
   business, 
   appointments, 
+  ratings,
   onViewAllAppointments, 
   onUpdateAppointment,
   onRemoveAppointment,
@@ -41,6 +43,53 @@ const Dashboard: React.FC<DashboardProps> = ({
             const s = business.services.find(serv => serv.id === appt.serviceId);
             return sum + (s ? s.price : 0);
         }, 0);
+
+    // Calculate Average Ratings
+    const calculateAverageRating = useMemo(() => {
+        // Get ratings from last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const recentRatings = ratings.filter(r => {
+            const ratingDate = new Date(r.date);
+            return ratingDate >= thirtyDaysAgo;
+        });
+
+        if (recentRatings.length === 0) return { business: 0, staff: 0, total: 0 };
+
+        const businessRatings = recentRatings
+            .filter(r => r.businessRating !== undefined)
+            .map(r => r.businessRating!);
+        
+        const staffRatings = recentRatings
+            .filter(r => r.staffRating !== undefined)
+            .map(r => r.staffRating!);
+
+        const avgBusiness = businessRatings.length > 0
+            ? businessRatings.reduce((sum, r) => sum + r, 0) / businessRatings.length
+            : 0;
+        
+        const avgStaff = staffRatings.length > 0
+            ? staffRatings.reduce((sum, r) => sum + r, 0) / staffRatings.length
+            : 0;
+
+        // Combined average (weighted: business 60%, staff 40% if both exist)
+        let combined = 0;
+        if (avgBusiness > 0 && avgStaff > 0) {
+            combined = (avgBusiness * 0.6) + (avgStaff * 0.4);
+        } else if (avgBusiness > 0) {
+            combined = avgBusiness;
+        } else if (avgStaff > 0) {
+            combined = avgStaff;
+        }
+
+        return {
+            business: Math.round(avgBusiness * 10) / 10,
+            staff: Math.round(avgStaff * 10) / 10,
+            total: Math.round(combined * 10) / 10,
+            count: recentRatings.length
+        };
+    }, [ratings]);
     
     // Dynamic Chart Data: Last 7 Days
     const chartData = useMemo(() => {
@@ -191,12 +240,23 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between group hover:border-yellow-500 transition-colors duration-300 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
-                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Rating</p>
+                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Client Rating</p>
                         <Star className="w-5 h-5 text-yellow-500" />
                     </div>
                     <div>
-                         <p className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">4.9</p>
-                         <p className="text-sm text-zinc-500">Based on last 30 days</p>
+                         <p className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-1 transition-colors">
+                            {calculateAverageRating.total > 0 ? calculateAverageRating.total.toFixed(1) : 'N/A'}
+                         </p>
+                         <p className="text-sm text-zinc-500">
+                            {calculateAverageRating.count > 0 
+                                ? `Based on ${calculateAverageRating.count} client${calculateAverageRating.count !== 1 ? 's' : ''}` 
+                                : 'No ratings yet'}
+                         </p>
+                         {calculateAverageRating.business > 0 && calculateAverageRating.staff > 0 && (
+                            <p className="text-xs text-zinc-400 mt-1">
+                                Business: {calculateAverageRating.business.toFixed(1)} • Staff: {calculateAverageRating.staff.toFixed(1)}
+                            </p>
+                         )}
                     </div>
                 </div>
             </div>
