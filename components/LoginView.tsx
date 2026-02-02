@@ -101,7 +101,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
     if (!HAS_GOOGLE_AUTH) {
       setNotification({
         title: "Google Auth Not Configured",
-        message: "Please set VITE_GOOGLE_CLIENT_ID in your .env.local file to enable Google Sign-In."
+        message: "VITE_GOOGLE_CLIENT_ID is missing. Set it in Vercel Environment Variables (for production) or .env.local (for local dev) to enable Google Sign-In."
       });
       return;
     }

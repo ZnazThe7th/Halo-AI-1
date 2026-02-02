@@ -7,7 +7,7 @@ const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.G
 const isValidClientId = GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'your_google_client_id_here' && GOOGLE_CLIENT_ID.trim() !== '';
 
 if (!isValidClientId) {
-  console.warn('⚠️ Google OAuth Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env.local file. Google Sign-In will be disabled.');
+  console.warn('⚠️ Google OAuth Client ID not configured. Set VITE_GOOGLE_CLIENT_ID in Vercel Environment Variables (for production) or .env.local (for local dev). Google Sign-In will be disabled.');
 }
 
 // Error Boundary Component

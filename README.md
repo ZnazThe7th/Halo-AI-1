@@ -15,7 +15,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1edTVUWWYQ1MW0vu5QQnnrk
 
 1. Install dependencies:
    `npm install`
-2. Create a `.env.local` file in the root directory and add your API keys:
+2. Create a `.env.local` file in the root directory and add your API keys (for local development):
    ```
    GEMINI_API_KEY=your_gemini_api_key_here
    VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
@@ -27,8 +27,13 @@ View your app in AI Studio: https://ai.studio/apps/drive/1edTVUWWYQ1MW0vu5QQnnrk
    - Set Application type to "Web application"
    - Add authorized JavaScript origins:
      - `http://localhost:3000` (for local development)
-     - Your production domain (when deploying)
-   - Copy the Client ID and add it to `.env.local` as `VITE_GOOGLE_CLIENT_ID`
+     - Your production domain (when deploying, e.g., `https://your-app.vercel.app`)
+   - **For Local Development:** Copy the Client ID and add it to `.env.local` as `VITE_GOOGLE_CLIENT_ID`
+   - **For Vercel/Production:** 
+     - Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+     - Add `VITE_GOOGLE_CLIENT_ID` with your Client ID value
+     - Select **Production** (and Preview if needed)
+     - **Important:** Redeploy after adding environment variables (they are injected at build time)
 4. **Email Service Setup (Optional):**
    - The app automatically sends rating emails when appointments are completed
    - In development, emails are simulated (logged to console)
