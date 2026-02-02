@@ -12,6 +12,7 @@ import MyBusinessView from './components/MyBusinessView';
 import LoginView from './components/LoginView';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
+import HaloLogo from './components/HaloLogo';
 import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -190,6 +191,9 @@ const App: React.FC = () => {
                 onSelectClient={setSelectedClient}
                 onAddClient={handleAddClient}
                 onRemoveClient={handleRemoveClient}
+                business={businessProfile}
+                onCopyLink={handleCopyLink}
+                linkCopied={linkCopied}
             />
         );
 
@@ -218,20 +222,26 @@ const App: React.FC = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`w-20 lg:w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col fixed h-full z-30 transition-all duration-300 ${
+      <aside className={`w-72 lg:w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col fixed h-full z-30 transition-all duration-300 ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
         <div className="p-4 lg:p-8 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-600 flex items-center justify-center font-bold text-xl text-black rounded-sm overflow-hidden">
-               {businessProfile.avatarUrl ? (
-                   <img src={businessProfile.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
-               ) : (
-                   "H"
-               )}
-            </div>
+          <button
+            onClick={() => {
+              setCurrentView(ViewState.DASHBOARD);
+              setIsMobileMenuOpen(false);
+            }}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
+            {businessProfile.avatarUrl ? (
+              <img src={businessProfile.avatarUrl} alt="Logo" className="w-10 h-10 rounded-sm object-cover" />
+            ) : (
+              <div className="w-10 h-10 flex items-center justify-center bg-orange-600 rounded-sm">
+                <HaloLogo size={40} className="flex-shrink-0" />
+              </div>
+            )}
             <span className="font-bold text-2xl uppercase tracking-widest hidden lg:block dark:text-white text-zinc-900">Halo</span>
-          </div>
+          </button>
           <button
             onClick={() => setIsMobileMenuOpen(false)}
             className="lg:hidden text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
@@ -301,14 +311,6 @@ const App: React.FC = () => {
         {/* Public Booking Actions */}
         <div className="p-4 lg:p-6 border-t border-zinc-200 dark:border-zinc-800 space-y-2 lg:space-y-3">
              <button 
-                onClick={handleCopyLink}
-                className="w-full flex items-center justify-center lg:justify-start gap-3 p-3 bg-zinc-800 dark:bg-zinc-900 text-white hover:bg-zinc-700 transition-colors uppercase font-bold text-xs tracking-widest border border-zinc-700 relative overflow-hidden group"
-             >
-                {linkCopied ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
-                <span>{linkCopied ? 'Copied' : 'Copy Booking Link'}</span>
-                {linkCopied && <div className="absolute inset-x-0 bottom-0 h-0.5 bg-green-500"></div>}
-            </button>
-             <button 
                 onClick={() => {
                   setCurrentView(ViewState.BOOKING_PUBLIC);
                   setIsMobileMenuOpen(false);
@@ -321,16 +323,20 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Mobile Menu Button */}
+
+      {/* Mobile Logo Button (Top Left) */}
       <button
-        onClick={() => setIsMobileMenuOpen(true)}
-        className="fixed top-4 left-4 z-30 lg:hidden w-10 h-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+        onClick={() => {
+          setCurrentView(ViewState.DASHBOARD);
+          setIsMobileMenuOpen(false);
+        }}
+        className="lg:hidden fixed top-4 left-4 z-30 w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity bg-orange-600 rounded-sm"
       >
-        <Menu className="w-5 h-5" />
+        <HaloLogo size={32} />
       </button>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:ml-20 lg:ml-72 bg-zinc-50 dark:bg-black min-h-screen relative overflow-auto transition-colors duration-300 pt-16 lg:pt-0">
+      <main className="flex-1 lg:ml-72 bg-zinc-50 dark:bg-black min-h-screen relative overflow-auto transition-colors duration-300 pt-16 lg:pt-0 pb-20 lg:pb-0">
          {/* Background accent element */}
          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/5 blur-[150px] pointer-events-none"></div>
          
@@ -367,11 +373,90 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 z-40 flex items-center justify-around px-2 py-2 safe-area-inset-bottom">
+        <button
+          onClick={() => {
+            setCurrentView(ViewState.DASHBOARD);
+            setIsMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+            currentView === ViewState.DASHBOARD 
+              ? 'text-orange-600 dark:text-orange-500' 
+              : 'text-zinc-500 dark:text-zinc-400'
+          }`}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Home</span>
+        </button>
+        
+        <button
+          onClick={() => {
+            setSelectedClient(null);
+            setCurrentView(ViewState.CLIENTS);
+            setIsMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+            currentView === ViewState.CLIENTS 
+              ? 'text-orange-600 dark:text-orange-500' 
+              : 'text-zinc-500 dark:text-zinc-400'
+          }`}
+        >
+          <Users className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Clients</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentView(ViewState.CALENDAR);
+            setIsMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+            currentView === ViewState.CALENDAR 
+              ? 'text-orange-600 dark:text-orange-500' 
+              : 'text-zinc-500 dark:text-zinc-400'
+          }`}
+        >
+          <CalendarIcon className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Calendar</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentView(ViewState.MY_BUSINESS);
+            setIsMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+            currentView === ViewState.MY_BUSINESS 
+              ? 'text-orange-600 dark:text-orange-500' 
+              : 'text-zinc-500 dark:text-zinc-400'
+          }`}
+        >
+          <Briefcase className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Business</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentView(ViewState.SETTINGS);
+            setIsMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+            currentView === ViewState.SETTINGS 
+              ? 'text-orange-600 dark:text-orange-500' 
+              : 'text-zinc-500 dark:text-zinc-400'
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Settings</span>
+        </button>
+      </nav>
+
       {/* Floating AI Chat Button */}
       {!isChatOpen && (
           <button 
             onClick={() => setIsChatOpen(true)}
-            className="fixed bottom-4 right-4 lg:bottom-8 lg:right-8 z-50 w-12 h-12 lg:w-14 lg:h-14 bg-orange-600 hover:bg-white text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,88,12,0.4)] flex items-center justify-center rounded-full group"
+            className="fixed bottom-20 lg:bottom-8 right-4 lg:right-8 z-50 w-12 h-12 lg:w-14 lg:h-14 bg-orange-600 hover:bg-white text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,88,12,0.4)] flex items-center justify-center rounded-full group"
           >
             <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 group-hover:rotate-12 transition-transform" />
           </button>

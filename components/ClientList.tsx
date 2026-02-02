@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Client } from '../types';
-import { Search, Plus, X, ChevronRight, User, Mail, Phone, Trash2 } from 'lucide-react';
+import { Client, BusinessProfile } from '../types';
+import { Search, Plus, X, ChevronRight, User, Mail, Phone, Trash2, Copy, Check, Globe } from 'lucide-react';
 
 interface ClientListProps {
   clients: Client[];
   onSelectClient: (client: Client) => void;
   onAddClient: (client: Client) => void;
   onRemoveClient: (clientId: string) => void;
+  business: BusinessProfile;
+  onCopyLink: () => void;
+  linkCopied: boolean;
 }
 
-const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddClient, onRemoveClient }) => {
+const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddClient, onRemoveClient, business, onCopyLink, linkCopied }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newClient, setNewClient] = useState({
     name: '',
@@ -55,12 +58,22 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onSelectClient, onAddC
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white uppercase tracking-wider mb-2">Client Roster</h1>
           <p className="text-zinc-500">Manage your relationships and history.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-orange-600 text-black px-6 py-3 font-bold uppercase tracking-widest hover:bg-white transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Add Client
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button 
+            onClick={onCopyLink}
+            className="bg-zinc-800 dark:bg-zinc-900 text-white hover:bg-zinc-700 transition-colors uppercase font-bold text-xs tracking-widest border border-zinc-700 relative overflow-hidden group px-4 py-3 flex items-center justify-center gap-2"
+          >
+            {linkCopied ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
+            <span>{linkCopied ? 'Copied' : 'Copy Booking Link'}</span>
+            {linkCopied && <div className="absolute inset-x-0 bottom-0 h-0.5 bg-green-500"></div>}
+          </button>
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="bg-orange-600 text-black px-6 py-3 font-bold uppercase tracking-widest hover:bg-white transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add Client
+          </button>
+        </div>
       </header>
 
       {/* Search Bar */}
