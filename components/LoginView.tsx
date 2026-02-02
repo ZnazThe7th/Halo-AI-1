@@ -89,7 +89,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   };
 
   // Always call the hook (React hooks must be called unconditionally)
-  // But only use it if Google Auth is configured
+  // The provider is always rendered in index.tsx, so this is safe
+  // If Google Auth is not configured, the provider will have a dummy clientId
   const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleSuccess,
     onError: handleGoogleError,

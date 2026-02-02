@@ -80,12 +80,12 @@ const root = ReactDOM.createRoot(rootElement);
 
 // Always wrap with GoogleOAuthProvider - it handles empty clientId gracefully
 // The LoginView component will show a message if Google Auth isn't configured
-const AppWrapper = isValidClientId ? (
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+// We always provide the provider to prevent "useGoogleLogin must be used within GoogleOAuthProvider" errors
+// If clientId is invalid, the provider will still render but Google Sign-In will be disabled
+const AppWrapper = (
+  <GoogleOAuthProvider clientId={isValidClientId ? GOOGLE_CLIENT_ID : 'dummy-client-id'}>
     <App />
   </GoogleOAuthProvider>
-) : (
-  <App />
 );
 
 root.render(
