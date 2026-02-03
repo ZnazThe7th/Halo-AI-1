@@ -16,6 +16,7 @@ export interface Service {
   durationMin: number;
   price: number;
   description: string;
+  pricePerPerson?: boolean; // If true, price is per person and allows multiple clients
 }
 
 export interface Staff {
@@ -88,8 +89,10 @@ export interface ClientRating {
 
 export interface Appointment {
   id: string;
-  clientId: string;
-  clientName: string; // Denormalized for MVP simplicity
+  clientId: string; // Keep for backward compatibility (first client if multiple)
+  clientName: string; // Denormalized for MVP simplicity (first client if multiple)
+  clientIds?: string[]; // Array of client IDs for multi-client appointments
+  clientNames?: string[]; // Array of client names for multi-client appointments
   serviceId: string;
   date: string; // ISO Date YYYY-MM-DD
   time: string; // HH:mm

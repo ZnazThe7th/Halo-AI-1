@@ -33,7 +33,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
     name: '',
     price: 0,
     durationMin: 30,
-    description: ''
+    description: '',
+    pricePerPerson: false
   };
   const [serviceForm, setServiceForm] = useState<Service>(emptyService);
 
@@ -243,7 +244,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
                </div>
                
                <div className="flex items-center gap-6">
-                  <span className="text-2xl font-bold text-orange-500 font-mono">${service.price}</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-2xl font-bold text-orange-500 font-mono">${service.price}</span>
+                    {service.pricePerPerson && (
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">per person</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 border-l border-zinc-200 dark:border-zinc-800 pl-6">
                       <button onClick={() => openEditService(service)} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
                         <Edit3 className="w-4 h-4" />
@@ -367,6 +373,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
                         <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Duration (Min)</label>
                         <input type="number" step="15" min="15" className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 text-zinc-900 dark:text-white focus:border-orange-600 outline-none font-mono" value={serviceForm.durationMin} onChange={e => setServiceForm({...serviceForm, durationMin: parseInt(e.target.value)})} />
                       </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="pricePerPerson"
+                      checked={serviceForm.pricePerPerson || false}
+                      onChange={e => setServiceForm({...serviceForm, pricePerPerson: e.target.checked})}
+                      className="w-4 h-4 text-orange-600 bg-zinc-50 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded focus:ring-orange-500"
+                    />
+                    <label htmlFor="pricePerPerson" className="text-sm text-zinc-900 dark:text-white font-medium cursor-pointer">
+                      Price per person (allows multiple clients in same appointment)
+                    </label>
                   </div>
                   <button onClick={handleSaveService} className="w-full mt-4 bg-orange-600 text-black py-3 font-bold uppercase tracking-widest hover:bg-orange-500 transition-colors">
                       {editingService ? 'Save Updates' : 'Create Service'}

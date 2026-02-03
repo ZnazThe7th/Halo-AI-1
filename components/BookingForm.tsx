@@ -7,8 +7,8 @@ import { formatTime } from '../constants';
 interface BookingFormProps {
   business: BusinessProfile;
   onBackToAdmin: () => void;
-  // New prop to handle actual data entry
-  onBookAppointment: (appt: Appointment, client: Client) => void;
+  // New prop to handle actual data entry - accepts array of clients for multi-client appointments
+  onBookAppointment: (appt: Appointment, clients: Client[]) => void;
 }
 
 const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBookAppointment }) => {
@@ -17,15 +17,22 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [clientInfo, setClientInfo] = useState({ name: '', email: '', phone: '' });
+  const [multipleClients, setMultipleClients] = useState<Array<{ name: '', email: '', phone: '' }>>([{ name: '', email: '', phone: '' }]);
 
   // Mock available times (stored as 24h, displayed as 12h)
   const timeSlots = ["09:00", "10:30", "13:00", "14:30", "16:00"];
 
   const handleBook = () => {
-    if (!selectedService || !selectedDate || !selectedTime || !clientInfo.name) return;
+    if (!selectedService || !selectedDate || !selectedTime) return;
 
-    // 1. Create Client Object
-    const newClient: Client = {
+    const isMultiClient = selectedService.pricePerPerson && multipleClients.length > 0;
+    const clientsToBook = isMultiClient ? multipleClients : [clientInfo];
+    
+    // Validate all clients have names
+    if (clientsToBook.some(c => !c.name.trim())) return;
+
+    // 1. Create Client Objects
+    const newClients: Client[] = clientsToBook.map(clientInfo => ({
         id: Math.random().toString(36).substr(2, 9),
         name: clientInfo.name,
         email: clientInfo.email,
@@ -33,21 +40,23 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
         notes: [],
         preferences: 'New Client via Online Booking',
         lastVisit: null
-    };
+    }));
 
-    // 2. Create Appointment Object
+    // 2. Create Appointment Object (with multiple clients if applicable)
     const newAppt: Appointment = {
         id: Math.random().toString(36).substr(2, 9),
-        clientId: newClient.id,
-        clientName: newClient.name,
+        clientId: newClients[0].id, // First client for backward compatibility
+        clientName: newClients[0].name,
+        clientIds: newClients.map(c => c.id),
+        clientNames: newClients.map(c => c.name),
         serviceId: selectedService.id,
         date: selectedDate,
         time: selectedTime,
         status: AppointmentStatus.CONFIRMED // Auto-confirm for demo
     };
 
-    // 3. Pass back to App
-    onBookAppointment(newAppt, newClient);
+    // 3. Pass back to App with all clients
+    onBookAppointment(newAppt, newClients);
     
     // 4. Show success
     setStep(4);
@@ -89,7 +98,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
                         {business.services.map(service => (
                             <button
                                 key={service.id}
-                                onClick={() => { setSelectedService(service); setStep(2); }}
+                                onClick={() => { 
+                                  setSelectedService(service); 
+                                  // Reset multiple clients when selecting a new service
+                                  if (service.pricePerPerson) {
+                                    setMultipleClients([{ name: '', email: '', phone: '' }]);
+                                  } else {
+                                    setClientInfo({ name: '', email: '', phone: '' });
+                                  }
+                                  setStep(2); 
+                                }}
                                 className="w-full text-left p-6 border border-zinc-800 bg-zinc-900 hover:border-orange-600 hover:bg-zinc-800 transition-all group relative overflow-hidden"
                             >
                                 <div className="flex justify-between items-center relative z-10">
@@ -167,7 +185,86 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
                          <h2 className="text-xl font-bold text-white uppercase tracking-wide">Finalize</h2>
                     </div>
                     
-                    <div className="space-y-6 mb-8">
+                    {selectedService?.pricePerPerson ? (
+                      // Multi-client form
+                      <div className="space-y-6 mb-8">
+                        <div className="bg-orange-600/10 border border-orange-600/30 p-4 mb-4">
+                          <p className="text-sm text-orange-500 uppercase tracking-wider font-bold mb-1">Multi-Client Service</p>
+                          <p className="text-xs text-zinc-400">${selectedService.price} per person. Add multiple clients for this appointment.</p>
+                        </div>
+                        {multipleClients.map((client, index) => (
+                          <div key={index} className="border border-zinc-800 p-4 bg-zinc-900/50">
+                            <div className="flex justify-between items-center mb-4">
+                              <h4 className="text-sm font-bold text-white uppercase tracking-wider">Client {index + 1}</h4>
+                              {multipleClients.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setMultipleClients(multipleClients.filter((_, i) => i !== index))}
+                                  className="text-xs text-red-500 hover:text-red-400 uppercase tracking-wider"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Full Name</label>
+                                <input 
+                                  type="text"
+                                  className="w-full p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none"
+                                  placeholder="JANE DOE"
+                                  value={client.name}
+                                  onChange={e => {
+                                    const updated = [...multipleClients];
+                                    updated[index] = { ...updated[index], name: e.target.value };
+                                    setMultipleClients(updated);
+                                  }}
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Email</label>
+                                  <input 
+                                    type="email"
+                                    className="w-full p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none"
+                                    placeholder="JANE@EXAMPLE.COM"
+                                    value={client.email}
+                                    onChange={e => {
+                                      const updated = [...multipleClients];
+                                      updated[index] = { ...updated[index], email: e.target.value };
+                                      setMultipleClients(updated);
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Phone</label>
+                                  <input 
+                                    type="tel"
+                                    className="w-full p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono"
+                                    placeholder="555-0123"
+                                    value={client.phone}
+                                    onChange={e => {
+                                      const updated = [...multipleClients];
+                                      updated[index] = { ...updated[index], phone: e.target.value };
+                                      setMultipleClients(updated);
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setMultipleClients([...multipleClients, { name: '', email: '', phone: '' }])}
+                          className="w-full py-3 border-2 border-dashed border-zinc-700 text-zinc-400 hover:border-orange-600 hover:text-orange-600 transition-colors uppercase tracking-widest text-xs font-bold"
+                        >
+                          + Add Another Client
+                        </button>
+                      </div>
+                    ) : (
+                      // Single client form
+                      <div className="space-y-6 mb-8">
                         <div>
                             <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Full Name</label>
                             <input 
@@ -201,6 +298,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
                             </div>
                         </div>
                     </div>
+                    )}
 
                     <div className="bg-zinc-900 border border-zinc-800 p-6 mb-8">
                         <h3 className="font-bold text-white uppercase tracking-wider mb-4 border-b border-zinc-800 pb-2">Booking Summary</h3>
@@ -219,7 +317,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
                              </div>
                              <div className="flex justify-between pt-4 border-t border-zinc-800 mt-2">
                                 <span className="text-white font-bold uppercase">Total</span>
-                                <span className="text-orange-500 font-mono font-bold">${selectedService?.price}</span>
+                                <span className="text-orange-500 font-mono font-bold">
+                                  ${selectedService?.pricePerPerson 
+                                    ? (selectedService.price * (selectedService.pricePerPerson ? multipleClients.length : 1)).toFixed(2)
+                                    : selectedService?.price}
+                                  {selectedService?.pricePerPerson && ` (${multipleClients.length} × $${selectedService.price})`}
+                                </span>
                              </div>
                         </div>
                     </div>
@@ -240,7 +343,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ business, onBackToAdmin, onBo
                     </div>
                     <h2 className="text-3xl font-bold text-white uppercase tracking-wider mb-4">Confirmed</h2>
                     <p className="text-zinc-400 mb-8 max-w-xs mx-auto">
-                        Confirmation sent to <span className="text-white font-bold">{clientInfo.email}</span>.
+                        {selectedService?.pricePerPerson && multipleClients.length > 1 
+                          ? `Confirmation sent to ${multipleClients.length} clients.`
+                          : `Confirmation sent to ${clientInfo.email || multipleClients[0]?.email || 'client'}.`}
                     </p>
                     <p className="text-sm font-mono text-zinc-500 mb-10">{selectedDate} / {formatTime(selectedTime)}</p>
                     

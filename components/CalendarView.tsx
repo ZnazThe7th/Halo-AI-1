@@ -193,9 +193,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       return business.services.find(s => s.id === serviceId)?.name || 'Unknown Service';
   };
 
-  const getServicePrice = (serviceId: string) => {
+  const getServicePrice = (serviceId: string, appointment?: Appointment) => {
       const service = business.services.find(s => s.id === serviceId);
-      return service ? service.price : 0;
+      if (!service) return 0;
+      
+      // If service is price per person and appointment has multiple clients, calculate total
+      if (service.pricePerPerson && appointment?.clientIds && appointment.clientIds.length > 1) {
+        return service.price * appointment.clientIds.length;
+      }
+      
+      return service.price;
   };
 
   const handleCellClick = (date: Date, timeStr = '09:00') => {
@@ -408,7 +415,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                             {appt.recurrence && <Repeat className="inline w-3 h-3 mr-1 text-orange-500" />}
                                             {isBlocked && <Ban className="inline w-3 h-3 mr-1 text-zinc-500" />}
                                             <span className="mr-1 opacity-75">{appt.displayTime}</span>
-                                            {appt.clientName}
+                                            {appt.clientNames && appt.clientNames.length > 1 
+                                              ? `${appt.clientNames.length} clients` 
+                                              : appt.clientName}
                                         </div>
                                     );
                                 })}
@@ -499,7 +508,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                     <span>{appt.displayTime}</span>
                                                     {isBlocked && <Ban className="w-3 h-3" />}
                                                </div>
-                                               <div className="truncate">{appt.clientName}</div>
+                                               <div className="truncate">
+                                                 {appt.clientNames && appt.clientNames.length > 1 
+                                                   ? `${appt.clientNames.length} clients` 
+                                                   : appt.clientName}
+                                               </div>
                                            </div>
                                        );
                                    })}
@@ -548,7 +561,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Reason</p>
-                                            <p className="text-lg font-bold text-zinc-300">{selectedAppointment.clientName}</p>
+                                            <p className="text-lg font-bold text-zinc-300">
+                                              {selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1
+                                                ? selectedAppointment.clientNames.join(', ')
+                                                : selectedAppointment.clientName}
+                                            </p>
                                         </div>
                                     </div>
                               ) : (
@@ -557,8 +574,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                             <User className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Client</p>
-                                            <p className="text-lg font-bold text-white">{selectedAppointment.clientName}</p>
+                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Client{selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1 ? 's' : ''}</p>
+                                            {selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1 ? (
+                                              <div className="space-y-1">
+                                                {selectedAppointment.clientNames.map((name, idx) => (
+                                                  <p key={idx} className="text-lg font-bold text-white">{name}</p>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <p className="text-lg font-bold text-white">{selectedAppointment.clientName}</p>
+                                            )}
                                         </div>
                                 </div>
                               )}
@@ -588,7 +613,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <p className="text-white font-bold">{getServiceName(selectedAppointment.serviceId)}</p>
-                                            <p className="text-orange-500 font-mono font-bold">${getServicePrice(selectedAppointment.serviceId)}</p>
+                                            <div className="text-right">
+                                              <p className="text-orange-500 font-mono font-bold">${getServicePrice(selectedAppointment.serviceId, selectedAppointment)}</p>
+                                              {selectedAppointment.clientIds && selectedAppointment.clientIds.length > 1 && (
+                                                <p className="text-xs text-zinc-500">
+                                                  ({selectedAppointment.clientIds.length} × ${business.services.find(s => s.id === selectedAppointment.serviceId)?.price || 0})
+                                                </p>
+                                              )}
+                                            </div>
                                         </div>
                                 </div>
                               )}

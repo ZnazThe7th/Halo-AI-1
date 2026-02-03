@@ -181,20 +181,43 @@ const App: React.FC = () => {
     ));
   };
 
-  const handlePublicBooking = (newAppt: Appointment, newClient: Client) => {
-      // 1. Check if client exists by email
-      const existingClient = clients.find(c => c.email.toLowerCase() === newClient.email.toLowerCase());
+  const handlePublicBooking = (newAppt: Appointment, newClients: Client[]) => {
+      // Handle all clients (single or multiple)
+      const clientsToAdd: Client[] = [];
+      const clientIdMap: { [email: string]: string } = {}; // Map email to existing client ID
       
-      if (existingClient) {
-          // Link appointment to existing client
-          newAppt.clientId = existingClient.id;
-          newAppt.clientName = existingClient.name;
-          setAppointments(prev => [...prev, newAppt]);
-      } else {
-          // Add new client and appointment
-          setClients(prev => [...prev, newClient]);
-          setAppointments(prev => [...prev, newAppt]);
+      // Check each client and either use existing or add new
+      newClients.forEach(client => {
+        const existingClient = clients.find(c => c.email.toLowerCase() === client.email.toLowerCase());
+        if (existingClient) {
+          clientIdMap[client.email.toLowerCase()] = existingClient.id;
+        } else {
+          clientsToAdd.push(client);
+          clientIdMap[client.email.toLowerCase()] = client.id;
+        }
+      });
+      
+      // Update appointment client IDs if they don't match existing clients
+      if (newAppt.clientIds) {
+        newAppt.clientIds = newAppt.clientIds.map((id, idx) => {
+          const clientEmail = newClients[idx]?.email.toLowerCase();
+          return clientIdMap[clientEmail] || id;
+        });
+        newAppt.clientNames = newAppt.clientIds.map(id => {
+          const client = [...clients, ...clientsToAdd].find(c => c.id === id);
+          return client?.name || '';
+        });
       }
+      
+      // Set primary client for backward compatibility
+      newAppt.clientId = newAppt.clientIds?.[0] || newClients[0].id;
+      newAppt.clientName = newAppt.clientNames?.[0] || newClients[0].name;
+      
+      // Add new clients and appointment
+      if (clientsToAdd.length > 0) {
+        setClients(prev => [...prev, ...clientsToAdd]);
+      }
+      setAppointments(prev => [...prev, newAppt]);
   };
 
   const handleCopyLink = () => {
