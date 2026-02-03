@@ -54,3 +54,27 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
   return ctx;
 }
+
+// Helper function to extract email from auth token
+export function getUserEmailFromToken(token: string | null): string | null {
+  if (!token) return null;
+  
+  // If it's an email-based token (format: email_<base64>_<timestamp>)
+  if (token.startsWith('email_')) {
+    try {
+      const parts = token.split('_');
+      if (parts.length >= 2) {
+        const decoded = atob(parts[1]);
+        if (decoded.includes('@')) {
+          return decoded;
+        }
+      }
+    } catch (e) {
+      // Ignore decode errors
+    }
+  }
+  
+  // For Google tokens, we'd need to decode the JWT or fetch user info
+  // For now, return null and we'll get email from business profile
+  return null;
+}

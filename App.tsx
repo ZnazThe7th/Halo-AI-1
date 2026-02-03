@@ -14,12 +14,12 @@ import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
 import HaloLogo from './components/HaloLogo';
 import RatingPage from './components/RatingPage';
-import { useAuth } from './services/authContext';
+import { useAuth, getUserEmailFromToken } from './services/authContext';
 import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
 
 const App: React.FC = () => {
   // Use auth context instead of local state to prevent auth loops
-  const { loading: authLoading, isAuthenticated, logout: authLogout } = useAuth();
+  const { loading: authLoading, isAuthenticated, logout: authLogout, accessToken } = useAuth();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -32,6 +32,84 @@ const App: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [ratings, setRatings] = useState<ClientRating[]>([]);
+
+  // Helper function to get storage key based on user email
+  const getStorageKey = (email: string | null): string => {
+    if (!email || email === DEFAULT_BUSINESS.email) {
+      return 'business_data_default'; // Return default key if no email
+    }
+    // Create a safe key from email (replace special chars)
+    const emailKey = email.replace(/[^a-zA-Z0-9]/g, '_');
+    return `business_data_${emailKey}`;
+  };
+
+  // Track if we've loaded data to prevent overwriting with defaults
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Load user data from localStorage when authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && !dataLoaded) {
+      try {
+        // Try to get email from token first, then from business profile
+        const emailFromToken = getUserEmailFromToken(accessToken);
+        const email = emailFromToken || businessProfile.email;
+        
+        if (email && email !== DEFAULT_BUSINESS.email) {
+          // Update business profile email if we got it from token
+          if (emailFromToken && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
+            setBusinessProfile(prev => ({ ...prev, email: emailFromToken }));
+          }
+          
+          const storageKey = getStorageKey(email);
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.businessProfile) {
+              setBusinessProfile(data.businessProfile);
+            }
+            if (data.clients) {
+              setClients(data.clients);
+            }
+            if (data.appointments) {
+              setAppointments(data.appointments);
+            }
+            if (data.expenses) {
+              setExpenses(data.expenses);
+            }
+            if (data.ratings) {
+              setRatings(data.ratings);
+            }
+          }
+          setDataLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error loading user data from localStorage:', error);
+        setDataLoaded(true); // Mark as loaded even on error to prevent retries
+      }
+    } else if (!isAuthenticated) {
+      // Reset dataLoaded when user logs out
+      setDataLoaded(false);
+    }
+  }, [authLoading, isAuthenticated, accessToken, dataLoaded, businessProfile.email]);
+
+  // Save user data to localStorage whenever it changes (if authenticated)
+  useEffect(() => {
+    if (isAuthenticated && businessProfile.email && businessProfile.email !== DEFAULT_BUSINESS.email) {
+      try {
+        const storageKey = getStorageKey(businessProfile.email);
+        const dataToSave = {
+          businessProfile,
+          clients,
+          appointments,
+          expenses,
+          ratings
+        };
+        localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+      } catch (error) {
+        console.error('Error saving user data to localStorage:', error);
+      }
+    }
+  }, [businessProfile, clients, appointments, expenses, ratings, isAuthenticated]);
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -67,6 +145,32 @@ const App: React.FC = () => {
     // Update business profile email if provided (for email/password sign-in)
     if (email && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
       setBusinessProfile(prev => ({ ...prev, email: email }));
+      // Load data for this email
+      try {
+        const storageKey = getStorageKey(email);
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.businessProfile) {
+            setBusinessProfile(data.businessProfile);
+          }
+          if (data.clients) {
+            setClients(data.clients);
+          }
+          if (data.appointments) {
+            setAppointments(data.appointments);
+          }
+          if (data.expenses) {
+            setExpenses(data.expenses);
+          }
+          if (data.ratings) {
+            setRatings(data.ratings);
+          }
+        }
+        setDataLoaded(true);
+      } catch (error) {
+        console.error('Error loading user data on login:', error);
+      }
     }
     setShowOnboarding(false);
   };
@@ -84,13 +188,24 @@ const App: React.FC = () => {
       setAppointments([]);
       setClients([]);
       setExpenses([]);
+      setRatings([]);
+      setDataLoaded(true); // Mark as loaded (new account, no data to load)
 
       // Auth state is already set by LoginView via auth context
       setShowOnboarding(true);
   };
 
   const handleLogout = () => {
+    // Note: We don't clear business data from localStorage on logout
+    // This allows users to sign back in and see their data
     authLogout(); // Use auth context logout to clear persisted token
+    // Reset to default state (data will be loaded when they sign back in)
+    setBusinessProfile(DEFAULT_BUSINESS);
+    setClients([]);
+    setAppointments([]);
+    setExpenses([]);
+    setRatings([]);
+    setDataLoaded(false); // Reset data loaded flag
     setCurrentView(ViewState.DASHBOARD); // Reset view on logout
   };
 
