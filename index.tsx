@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { AuthProvider } from './services/authContext';
 import App from './App';
 
 // Temporary debug log - remove after confirming Vercel env var is working
@@ -81,13 +82,16 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
+// Provider order matters: GoogleOAuthProvider -> AuthProvider -> App
 // Always wrap with GoogleOAuthProvider - it handles empty clientId gracefully
 // The LoginView component will show a message if Google Auth isn't configured
 // We always provide the provider to prevent "useGoogleLogin must be used within GoogleOAuthProvider" errors
 // If clientId is invalid, the provider will still render but Google Sign-In will be disabled
 const AppWrapper = (
   <GoogleOAuthProvider clientId={isValidClientId ? GOOGLE_CLIENT_ID : 'dummy-client-id'}>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </GoogleOAuthProvider>
 );
 

@@ -14,10 +14,12 @@ import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
 import HaloLogo from './components/HaloLogo';
 import RatingPage from './components/RatingPage';
+import { useAuth } from './services/authContext';
 import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Use auth context instead of local state to prevent auth loops
+  const { loading: authLoading, isAuthenticated, logout: authLogout } = useAuth();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -61,7 +63,8 @@ const App: React.FC = () => {
 
   // Handlers
   const handleLogin = () => {
-    setIsAuthenticated(true);
+    // Auth state is already set by LoginView via auth context
+    // Just close onboarding if needed
     setShowOnboarding(false);
   };
 
@@ -79,12 +82,12 @@ const App: React.FC = () => {
       setClients([]);
       setExpenses([]);
 
-      setIsAuthenticated(true);
+      // Auth state is already set by LoginView via auth context
       setShowOnboarding(true);
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    authLogout(); // Use auth context logout to clear persisted token
     setCurrentView(ViewState.DASHBOARD); // Reset view on logout
   };
 
@@ -236,6 +239,18 @@ const App: React.FC = () => {
             onBookAppointment={handlePublicBooking}
         />
       );
+  }
+
+  // 3. Show loading state while auth is being restored (prevents redirect loops)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-sm">Authenticating...</p>
+        </div>
+      </div>
+    );
   }
 
   // Simple Router Switch for Authenticated Views

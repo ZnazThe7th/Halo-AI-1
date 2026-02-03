@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles, Mail, Lock, User, Briefcase, KeyRound, CheckCircl
 import { useGoogleLogin } from '@react-oauth/google';
 import { generateResetCodeEmail } from '../services/geminiService';
 import { fetchGoogleUserInfo, extractBusinessName } from '../services/googleAuthService';
+import { useAuth } from '../services/authContext';
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '') as string;
 const HAS_GOOGLE_AUTH = GOOGLE_CLIENT_ID && 
@@ -17,6 +18,7 @@ interface LoginViewProps {
 type LoginMode = 'signin' | 'signup' | 'forgot_email' | 'forgot_code' | 'forgot_new_pass';
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
+  const { login } = useAuth(); // Get login function from auth context
   const [mode, setMode] = useState<LoginMode>('signin');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -45,6 +47,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   const handleGoogleSuccess = async (tokenResponse: any) => {
     setIsLoading(true);
     try {
+      // IMPORTANT: Save access_token immediately to prevent auth loops
+      // useGoogleLogin() returns access_token (not credential)
+      if (!tokenResponse.access_token) {
+        throw new Error('No access token received from Google');
+      }
+
+      // Persist the access token
+      login(tokenResponse.access_token);
+
       // Fetch user info from Google
       const userInfo = await fetchGoogleUserInfo(tokenResponse.access_token);
       
