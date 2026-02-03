@@ -62,9 +62,12 @@ const App: React.FC = () => {
   }, [businessProfile.themePreference]);
 
   // Handlers
-  const handleLogin = () => {
+  const handleLogin = (email?: string) => {
     // Auth state is already set by LoginView via auth context
-    // Just close onboarding if needed
+    // Update business profile email if provided (for email/password sign-in)
+    if (email && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
+      setBusinessProfile(prev => ({ ...prev, email: email }));
+    }
     setShowOnboarding(false);
   };
 
@@ -628,8 +631,8 @@ const App: React.FC = () => {
             </button>
             <div className="relative">
               <LoginView 
-                onLogin={() => {
-                  handleLogin();
+                onLogin={(email) => {
+                  handleLogin(email);
                   setShowLoginModal(false);
                 }} 
                 onSignup={(name, businessName, email) => {

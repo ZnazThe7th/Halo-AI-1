@@ -11,7 +11,7 @@ const HAS_GOOGLE_AUTH = GOOGLE_CLIENT_ID &&
   GOOGLE_CLIENT_ID.trim() !== '';
 
 interface LoginViewProps {
-  onLogin: () => void;
+  onLogin: (email?: string) => void; // Accept optional email for email/password sign-in
   onSignup: (name: string, businessName: string, email: string) => void;
 }
 
@@ -53,21 +53,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
         throw new Error('No access token received from Google');
       }
 
-      // Persist the access token
+      // Persist the access token FIRST to prevent loading loops
       login(tokenResponse.access_token);
 
       // Fetch user info from Google
       const userInfo = await fetchGoogleUserInfo(tokenResponse.access_token);
       
       setIsLoading(false);
-      if (mode === 'signup') {
-        const businessName = extractBusinessName(userInfo.email, userInfo.name);
-        onSignup(userInfo.name, businessName, userInfo.email);
-      } else {
-        // For sign in, we can use the user info to authenticate
-        // In a real app, you'd verify the token with your backend
-        onLogin();
-      }
+      
+      // Small delay to ensure auth state propagates before calling callbacks
+      setTimeout(() => {
+        if (mode === 'signup') {
+          const businessName = extractBusinessName(userInfo.email, userInfo.name);
+          onSignup(userInfo.name, businessName, userInfo.email);
+        } else {
+          // For sign in, pass the email from Google
+          onLogin(userInfo.email);
+        }
+      }, 200);
     } catch (error) {
       console.error('Google authentication error:', error);
       setIsLoading(false);
@@ -127,11 +130,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
 
     setIsLoading(true);
     setTimeout(() => {
+      // Create a simple token for email/password auth (using email as identifier)
+      // In a real app, this would be a proper JWT from your backend
+      const emailToken = `email_${btoa(email)}_${Date.now()}`;
+      
+      // Persist auth state for email/password sign-in
+      login(emailToken);
+      
       setIsLoading(false);
       if (mode === 'signup') {
         onSignup(fullName, businessName, email);
       } else {
-        onLogin();
+        onLogin(email); // Pass email for sign-in
       }
     }, 1500);
   };
