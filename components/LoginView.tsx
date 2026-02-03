@@ -18,7 +18,7 @@ interface LoginViewProps {
 type LoginMode = 'signin' | 'signup' | 'forgot_email' | 'forgot_code' | 'forgot_new_pass';
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
-  const { login } = useAuth(); // Get login function from auth context
+  const { loading: authLoading, isAuthenticated, login } = useAuth(); // Get auth state and login function
   const [mode, setMode] = useState<LoginMode>('signin');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -212,6 +212,25 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
           default: return 'Sign in to manage your business.';
       }
   };
+
+  // Loading gate: don't render login form while auth is loading
+  // This prevents redirect bounces before auth state is restored
+  if (authLoading) {
+    return (
+      <div className="bg-black flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden rounded-sm min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-zinc-500 uppercase tracking-wider text-xs font-bold">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, don't show login form
+  // The parent component should handle closing the modal
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="bg-black flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden rounded-sm">

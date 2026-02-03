@@ -208,6 +208,14 @@ const App: React.FC = () => {
   // State for login modal
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // Close login modal when user becomes authenticated (only after loading is complete)
+  // This prevents closing the modal while auth state is still being restored
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && showLoginModal) {
+      setShowLoginModal(false);
+    }
+  }, [authLoading, isAuthenticated, showLoginModal]);
+
   // 1. Check for Rating Page - accessible without auth
   if (currentView === ViewState.RATING_PAGE) {
     const path = window.location.pathname;

@@ -15,12 +15,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // Restore auth state from localStorage on mount
+  // Use try/finally to guarantee loading is always set to false
   useEffect(() => {
-    const saved = localStorage.getItem('google_access_token');
-    if (saved) {
-      setAccessToken(saved);
+    try {
+      const saved = localStorage.getItem('google_access_token');
+      if (saved) {
+        setAccessToken(saved);
+      }
+    } catch (error) {
+      console.error('Error reading auth state from localStorage:', error);
+    } finally {
+      // Always set loading to false, even if there's an error
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = (token: string) => {
