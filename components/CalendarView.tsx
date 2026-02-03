@@ -197,12 +197,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       const service = business.services.find(s => s.id === serviceId);
       if (!service) return 0;
       
-      // If service is price per person and appointment has multiple clients, calculate total
-      if (service.pricePerPerson && appointment?.clientIds && appointment.clientIds.length > 1) {
-        return service.price * appointment.clientIds.length;
+      // If service is price per person, use numberOfPeople if available, otherwise use clientIds length
+      if (service.pricePerPerson) {
+        if (appointment?.numberOfPeople) {
+          return service.price * appointment.numberOfPeople;
+        } else if (appointment?.clientIds && appointment.clientIds.length > 1) {
+          return service.price * appointment.clientIds.length;
+        }
+        // Default to 1 if no number specified
+        return service.price;
       }
       
       return service.price;
+  };
+  
+  // Helper to check if selected service has price per person
+  const getSelectedService = () => {
+    return business.services.find(s => s.id === editForm.serviceId);
   };
 
   const handleCellClick = (date: Date, timeStr = '09:00') => {
@@ -210,15 +221,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       // Adjust dateStr if clicking in a timezone that pushes it to prev/next day in UTC? 
       // For MVP simplicity, we assume new bookings are created on the clicked Date string in Base time.
       
+      const defaultService = business.services[0];
       const newAppt: Appointment = {
           id: Math.random().toString(36).substring(2, 9),
           clientId: '',
           clientName: '',
-          serviceId: business.services[0].id,
+          serviceId: defaultService?.id || '',
           date: dateStr,
           time: timeStr,
           status: AppointmentStatus.CONFIRMED,
-          recurrence: undefined
+          recurrence: undefined,
+          numberOfPeople: defaultService?.pricePerPerson ? 1 : undefined
       };
       
       setSelectedAppointment({ ...newAppt, displayTime: formatTime(timeStr) });
@@ -612,14 +625,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Price</p>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <p className="text-white font-bold">{getServiceName(selectedAppointment.serviceId)}</p>
+                                            <div>
+                                              <p className="text-white font-bold">{getServiceName(selectedAppointment.serviceId)}</p>
+                                              {(() => {
+                                                const service = business.services.find(s => s.id === selectedAppointment.serviceId);
+                                                if (service?.pricePerPerson && selectedAppointment.numberOfPeople) {
+                                                  return (
+                                                    <p className="text-xs text-zinc-500 mt-1">
+                                                      {selectedAppointment.numberOfPeople} {selectedAppointment.numberOfPeople === 1 ? 'person' : 'people'}
+                                                    </p>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
+                                            </div>
                                             <div className="text-right">
                                               <p className="text-orange-500 font-mono font-bold">${getServicePrice(selectedAppointment.serviceId, selectedAppointment)}</p>
-                                              {selectedAppointment.clientIds && selectedAppointment.clientIds.length > 1 && (
-                                                <p className="text-xs text-zinc-500">
-                                                  ({selectedAppointment.clientIds.length} × ${business.services.find(s => s.id === selectedAppointment.serviceId)?.price || 0})
-                                                </p>
-                                              )}
+                                              {(() => {
+                                                const service = business.services.find(s => s.id === selectedAppointment.serviceId);
+                                                if (service?.pricePerPerson) {
+                                                  const numPeople = selectedAppointment.numberOfPeople || (selectedAppointment.clientIds?.length || 1);
+                                                  return (
+                                                    <p className="text-xs text-zinc-500">
+                                                      ({numPeople} × ${service.price})
+                                                    </p>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
                                             </div>
                                         </div>
                                 </div>
@@ -703,18 +736,44 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                               </div>
                               
                               {entryType === 'APPOINTMENT' && (
-                                <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Service</label>
-                                    <select
-                                        value={editForm.serviceId}
-                                        onChange={e => setEditForm({...editForm, serviceId: e.target.value})}
-                                        className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none appearance-none"
-                                    >
-                                        {business.services.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name} - ${s.price}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <>
+                                  <div>
+                                      <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Service</label>
+                                      <select
+                                          value={editForm.serviceId}
+                                          onChange={e => {
+                                            const newServiceId = e.target.value;
+                                            const service = business.services.find(s => s.id === newServiceId);
+                                            // Reset numberOfPeople when changing service
+                                            setEditForm({
+                                              ...editForm, 
+                                              serviceId: newServiceId,
+                                              numberOfPeople: service?.pricePerPerson ? (editForm.numberOfPeople || 1) : undefined
+                                            });
+                                          }}
+                                          className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none appearance-none"
+                                      >
+                                          {business.services.map(s => (
+                                              <option key={s.id} value={s.id}>
+                                                {s.name} - ${s.price}{s.pricePerPerson ? ' per person' : ''}
+                                              </option>
+                                          ))}
+                                      </select>
+                                  </div>
+                                  {getSelectedService()?.pricePerPerson && (
+                                    <div>
+                                      <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Number of People</label>
+                                      <input 
+                                        type="number" 
+                                        min="1"
+                                        value={editForm.numberOfPeople || 1}
+                                        onChange={e => setEditForm({...editForm, numberOfPeople: parseInt(e.target.value) || 1})}
+                                        className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono"
+                                        placeholder="1"
+                                      />
+                                    </div>
+                                  )}
+                                </>
                               )}
 
                               <div className="grid grid-cols-2 gap-4">

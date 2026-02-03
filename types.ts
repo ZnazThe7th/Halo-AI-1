@@ -101,6 +101,7 @@ export interface Appointment {
   recurrence?: RecurrenceRule;
   staffId?: string; // Which staff member is assigned
   rating?: ClientRating; // Rating for this appointment
+  numberOfPeople?: number; // Number of people for price-per-person services
 }
 
 export interface AISummaryResponse {
