@@ -271,20 +271,22 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
       </section>
 
       {/* Account Actions */}
-      <section className="border-t border-zinc-200 dark:border-zinc-800 pt-8">
-          <div className="flex justify-between items-center">
-              <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-white uppercase tracking-wide">Account Session</h2>
-                  <p className="text-sm text-zinc-500">Sign out of your account on this device.</p>
-              </div>
-              <button 
-                onClick={onLogout}
-                className="flex items-center gap-2 px-6 py-3 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors font-bold uppercase tracking-widest text-xs"
-              >
-                  <LogOut className="w-4 h-4" /> Sign Out
-              </button>
-          </div>
-      </section>
+      {isAuthenticated && (
+        <section className="border-t border-zinc-200 dark:border-zinc-800 pt-8">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-lg font-bold text-zinc-900 dark:text-white uppercase tracking-wide">Account Session</h2>
+                    <p className="text-sm text-zinc-500">Sign out of your account on this device.</p>
+                </div>
+                <button 
+                  onClick={onLogout}
+                  className="flex items-center gap-2 px-6 py-3 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors font-bold uppercase tracking-widest text-xs"
+                >
+                    <LogOut className="w-4 h-4" /> Sign Out
+                </button>
+            </div>
+        </section>
+      )}
 
       {/* Edit Profile Modal */}
       {isProfileModalOpen && (
