@@ -268,109 +268,116 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   };
 
   const handleSave = () => {
-      // Validate required fields
-      if (entryType === 'APPOINTMENT' && !editForm.serviceId) {
-          alert('Please select a service');
-          return;
-      }
-      
-      if (entryType === 'APPOINTMENT' && !editForm.clientName && !editForm.clientNames?.length) {
-          alert('Please enter a client name');
-          return;
-      }
+      // Use requestAnimationFrame to defer save operation (non-blocking)
+      requestAnimationFrame(() => {
+          // Validate required fields
+          if (entryType === 'APPOINTMENT' && !editForm.serviceId) {
+              alert('Please select a service');
+              return;
+          }
+          
+          if (entryType === 'APPOINTMENT' && !editForm.clientName && !editForm.clientNames?.length) {
+              alert('Please enter a client name');
+              return;
+          }
 
-      if (!editForm.date || !editForm.time) {
-          alert('Please enter date and time');
-          return;
-      }
+          if (!editForm.date || !editForm.time) {
+              alert('Please enter date and time');
+              return;
+          }
 
-      let updatedAppt = { ...selectedAppointment, ...editForm } as Appointment;
-      
-      if (entryType === 'BLOCK') {
-          updatedAppt.status = AppointmentStatus.BLOCKED;
-          updatedAppt.serviceId = 'BLOCK';
-          updatedAppt.clientId = 'BLOCK';
-          updatedAppt.clientName = editForm.clientName || 'Blocked Time';
-          updatedAppt.clientIds = ['BLOCK'];
-          updatedAppt.clientNames = [editForm.clientName || 'Blocked Time'];
-      } else {
-          // Ensure appointment has proper structure
-          if (updatedAppt.status === AppointmentStatus.BLOCKED) {
-              updatedAppt.status = AppointmentStatus.CONFIRMED;
-          }
+          let updatedAppt = { ...selectedAppointment, ...editForm } as Appointment;
           
-          // Handle client information
-          if (editForm.clientNames && editForm.clientNames.length > 0) {
-              // Multiple clients
-              updatedAppt.clientNames = editForm.clientNames.filter((name: string) => name.trim() !== '');
-              updatedAppt.clientName = updatedAppt.clientNames[0] || '';
-              // Generate temporary client IDs if not provided
-              if (!editForm.clientIds || editForm.clientIds.length !== updatedAppt.clientNames.length) {
-                  updatedAppt.clientIds = updatedAppt.clientNames.map((_, i) => `temp_${Date.now()}_${i}`);
-              } else {
-                  updatedAppt.clientIds = editForm.clientIds;
+          if (entryType === 'BLOCK') {
+              updatedAppt.status = AppointmentStatus.BLOCKED;
+              updatedAppt.serviceId = 'BLOCK';
+              updatedAppt.clientId = 'BLOCK';
+              updatedAppt.clientName = editForm.clientName || 'Blocked Time';
+              updatedAppt.clientIds = ['BLOCK'];
+              updatedAppt.clientNames = [editForm.clientName || 'Blocked Time'];
+          } else {
+              // Ensure appointment has proper structure
+              if (updatedAppt.status === AppointmentStatus.BLOCKED) {
+                  updatedAppt.status = AppointmentStatus.CONFIRMED;
               }
-              updatedAppt.clientId = updatedAppt.clientIds[0] || '';
-          } else if (editForm.clientName) {
-              // Single client
-              updatedAppt.clientName = editForm.clientName;
-              updatedAppt.clientId = editForm.clientId || `temp_${Date.now()}`;
-              updatedAppt.clientIds = [updatedAppt.clientId];
-              updatedAppt.clientNames = [updatedAppt.clientName];
-          }
-          
-          // Ensure service is valid
-          if (!updatedAppt.serviceId || updatedAppt.serviceId === 'BLOCK') {
-              const defaultService = business.services[0];
-              if (defaultService) {
-                  updatedAppt.serviceId = defaultService.id;
-              } else {
-                  alert('No services available. Please add a service first.');
-                  return;
+              
+              // Handle client information
+              if (editForm.clientNames && editForm.clientNames.length > 0) {
+                  // Multiple clients
+                  updatedAppt.clientNames = editForm.clientNames.filter((name: string) => name.trim() !== '');
+                  updatedAppt.clientName = updatedAppt.clientNames[0] || '';
+                  // Generate temporary client IDs if not provided
+                  if (!editForm.clientIds || editForm.clientIds.length !== updatedAppt.clientNames.length) {
+                      updatedAppt.clientIds = updatedAppt.clientNames.map((_, i) => `temp_${Date.now()}_${i}`);
+                  } else {
+                      updatedAppt.clientIds = editForm.clientIds;
+                  }
+                  updatedAppt.clientId = updatedAppt.clientIds[0] || '';
+              } else if (editForm.clientName) {
+                  // Single client
+                  updatedAppt.clientName = editForm.clientName;
+                  updatedAppt.clientId = editForm.clientId || `temp_${Date.now()}`;
+                  updatedAppt.clientIds = [updatedAppt.clientId];
+                  updatedAppt.clientNames = [updatedAppt.clientName];
               }
-          }
-          
-          // Handle numberOfPeople for price-per-person services
-          const service = business.services.find(s => s.id === updatedAppt.serviceId);
-          if (service?.pricePerPerson) {
-              if (editForm.numberOfPeople) {
-                  updatedAppt.numberOfPeople = editForm.numberOfPeople;
-                  // Ensure clientNames array matches numberOfPeople
-                  if (updatedAppt.clientNames.length < editForm.numberOfPeople) {
-                      // Pad with placeholder names if needed
-                      while (updatedAppt.clientNames.length < editForm.numberOfPeople) {
-                          updatedAppt.clientNames.push(`Client ${updatedAppt.clientNames.length + 1}`);
+              
+              // Ensure service is valid
+              if (!updatedAppt.serviceId || updatedAppt.serviceId === 'BLOCK') {
+                  const defaultService = business.services[0];
+                  if (defaultService) {
+                      updatedAppt.serviceId = defaultService.id;
+                  } else {
+                      alert('No services available. Please add a service first.');
+                      return;
+                  }
+              }
+              
+              // Handle numberOfPeople for price-per-person services
+              const service = business.services.find(s => s.id === updatedAppt.serviceId);
+              if (service?.pricePerPerson) {
+                  if (editForm.numberOfPeople) {
+                      updatedAppt.numberOfPeople = editForm.numberOfPeople;
+                      // Ensure clientNames array matches numberOfPeople
+                      if (updatedAppt.clientNames.length < editForm.numberOfPeople) {
+                          // Pad with placeholder names if needed
+                          while (updatedAppt.clientNames.length < editForm.numberOfPeople) {
+                              updatedAppt.clientNames.push(`Client ${updatedAppt.clientNames.length + 1}`);
+                          }
                       }
+                  } else {
+                      updatedAppt.numberOfPeople = updatedAppt.clientNames?.length || 1;
                   }
               } else {
-                  updatedAppt.numberOfPeople = updatedAppt.clientNames?.length || 1;
+                  // Not price per person, ensure single client
+                  updatedAppt.numberOfPeople = undefined;
               }
-          } else {
-              // Not price per person, ensure single client
-              updatedAppt.numberOfPeople = undefined;
           }
-      }
 
-      // Ensure all required fields are present
-      if (!updatedAppt.id) {
-          updatedAppt.id = Math.random().toString(36).substring(2, 9);
-      }
+          // Ensure all required fields are present
+          if (!updatedAppt.id) {
+              updatedAppt.id = Math.random().toString(36).substring(2, 9);
+          }
 
-      if (isNew) {
-          onAddAppointment(updatedAppt);
-          // Close modal after adding
-          setSelectedAppointment(null);
-          setIsEditing(false);
-          setIsNew(false);
-      } else {
-          onUpdateAppointment(updatedAppt);
-          // Update local state to reflect changes immediately
-          const updatedWithDisplayTime = { ...updatedAppt, displayTime: formatTime(updatedAppt.time) };
-          setSelectedAppointment(updatedWithDisplayTime);
-          setIsEditing(false);
-          setIsNew(false);
-          // Keep modal open to show updated appointment
-      }
+          if (isNew) {
+              onAddAppointment(updatedAppt);
+              // Close modal after adding (defer to next frame)
+              requestAnimationFrame(() => {
+                  setSelectedAppointment(null);
+                  setIsEditing(false);
+                  setIsNew(false);
+              });
+          } else {
+              onUpdateAppointment(updatedAppt);
+              // Update local state to reflect changes immediately (defer to next frame)
+              requestAnimationFrame(() => {
+                  const updatedWithDisplayTime = { ...updatedAppt, displayTime: formatTime(updatedAppt.time) };
+                  setSelectedAppointment(updatedWithDisplayTime);
+                  setIsEditing(false);
+                  setIsNew(false);
+              });
+              // Keep modal open to show updated appointment
+          }
+      });
   };
 
   const handleComplete = () => {
@@ -1005,7 +1012,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
                               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-2 sm:gap-4">
                                   <button 
-                                    onClick={() => setIsEditing(false)}
+                                    onClick={() => {
+                                        // Defer cancel to next frame (non-blocking)
+                                        requestAnimationFrame(() => {
+                                            setIsEditing(false);
+                                        });
+                                    }}
                                     className="flex-1 py-3 sm:py-4 border border-zinc-700 text-white font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors text-xs sm:text-sm"
                                   >
                                       Cancel
