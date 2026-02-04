@@ -53,9 +53,27 @@ const App: React.FC = () => {
     if (!authLoading && isAuthenticated && !dataLoaded) {
       const loadData = async () => {
         try {
-          // Get email from token to help with debugging
+          // First, try to get email from backend session (most reliable)
+          let userEmail: string | null = null;
+          try {
+            const { getCurrentUser } = await import('./services/apiService');
+            const userResult = await getCurrentUser();
+            if (userResult.data && userResult.data.email) {
+              userEmail = userResult.data.email;
+              console.log('✅ Got email from backend session:', userEmail);
+              // Update business profile email if we got it from backend
+              if (userEmail && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
+                setBusinessProfile(prev => ({ ...prev, email: userEmail! }));
+              }
+            }
+          } catch (e) {
+            console.warn('Could not get email from backend session, using token/fallback');
+          }
+          
+          // Fallback to token or business profile email
           const emailFromToken = getUserEmailFromToken(accessToken);
-          console.log('🔄 Loading data for user:', emailFromToken || businessProfile.email || 'unknown');
+          const email = userEmail || emailFromToken || businessProfile.email;
+          console.log('🔄 Loading data for user:', email || 'unknown');
           
           const result = await loadUserData();
           
@@ -70,7 +88,6 @@ const App: React.FC = () => {
             // This ensures cross-device sync when backend is available
             if (result.error === 'API_UNAVAILABLE') {
               console.warn('⚠️ Backend API not available - using localStorage (data will NOT sync across devices)');
-              const email = emailFromToken || businessProfile.email;
               if (email && email !== DEFAULT_BUSINESS.email) {
                 const storageKey = getStorageKey(email);
                 const saved = localStorage.getItem(storageKey);
@@ -94,10 +111,9 @@ const App: React.FC = () => {
               console.error('❌ Backend API error (not using localStorage fallback):', result.error);
             }
           } else if (result.data) {
-            // Update business profile email if we got it from token
-            const emailFromToken = getUserEmailFromToken(accessToken);
-            if (emailFromToken && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
-              setBusinessProfile(prev => ({ ...prev, email: emailFromToken }));
+            // Update business profile email if we got it from backend or token
+            if (email && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
+              setBusinessProfile(prev => ({ ...prev, email }));
             }
             
             // Always set data from backend, even if arrays are empty (this ensures sync)
@@ -118,7 +134,6 @@ const App: React.FC = () => {
             
             // If backend data is empty but we have localStorage data, merge them
             // This helps migrate data from localStorage to backend
-            const email = emailFromToken || result.data.businessProfile?.email || businessProfile.email;
             if (email && email !== DEFAULT_BUSINESS.email) {
               const storageKey = getStorageKey(email);
               const saved = localStorage.getItem(storageKey);
@@ -269,8 +284,27 @@ const App: React.FC = () => {
     // Update business profile email if provided (for email/password sign-in)
     if (email && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
       setBusinessProfile(prev => ({ ...prev, email: email }));
-      // Data will be loaded by the useEffect that watches isAuthenticated
     }
+    
+    // Reset dataLoaded to force reload from backend after login
+    // This ensures we get fresh data from the backend, not stale localStorage
+    setDataLoaded(false);
+    
+    // Try to get email from backend session to ensure we're using the correct email
+    try {
+      const { getCurrentUser } = await import('./services/apiService');
+      const userResult = await getCurrentUser();
+      if (userResult.data && userResult.data.email) {
+        const backendEmail = userResult.data.email;
+        console.log('✅ Got email from backend session:', backendEmail);
+        if (backendEmail && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
+          setBusinessProfile(prev => ({ ...prev, email: backendEmail }));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not get email from backend session:', e);
+    }
+    
     setShowOnboarding(false);
   };
 

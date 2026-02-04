@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Appointment, AppointmentStatus, BusinessProfile, RecurrenceRule } from '../types';
-import { ChevronLeft, ChevronRight, Filter, Calendar as CalendarIcon, Clock, X, Edit3, User, Repeat, Save, Globe, Plus, CheckCircle, Ban, Lock, List, Grid } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Calendar as CalendarIcon, Clock, X, Edit3, User, Repeat, Save, Globe, Plus, CheckCircle, Ban, Lock, List, Grid, XCircle } from 'lucide-react';
 import { formatTime } from '../constants';
 
 interface CalendarViewProps {
@@ -387,6 +387,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       }
   };
 
+  const handleCancel = () => {
+      if (selectedAppointment) {
+          if (confirm("Are you sure you want to cancel this appointment?")) {
+              const cancelledAppt = { ...selectedAppointment, status: AppointmentStatus.CANCELLED };
+              onUpdateAppointment(cancelledAppt);
+              // Update local state to reflect the change immediately
+              const updatedWithDisplayTime = { 
+                  ...cancelledAppt, 
+                  displayTime: selectedAppointment.displayTime || formatTime(cancelledAppt.time)
+              };
+              setSelectedAppointment(updatedWithDisplayTime);
+          }
+      }
+  };
+
   const toggleRecurrence = () => {
       if (editForm.recurrence) {
           setEditForm({ ...editForm, recurrence: undefined });
@@ -535,6 +550,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                 appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-800 border-emerald-500 text-white' : 
                                                 appt.status === AppointmentStatus.PENDING ? 'bg-zinc-800 border-yellow-500 text-yellow-500' :
                                                 appt.status === AppointmentStatus.COMPLETED ? 'bg-zinc-800 border-blue-500 text-blue-500' :
+                                                appt.status === AppointmentStatus.CANCELLED ? 'bg-zinc-800 border-red-500 text-red-500 line-through' :
                                                 'bg-zinc-800 border-zinc-500 text-zinc-500'
                                             }`}
                                         >
@@ -631,6 +647,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                 }}
                                                 className={`absolute inset-x-1 rounded-sm p-2 text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
                                                     isBlocked ? 'bg-zinc-900 border-zinc-600 text-zinc-400 border-dashed opacity-80' :
+                                                    appt.status === AppointmentStatus.CANCELLED ? 'bg-red-900/80 border-red-500 text-red-100 line-through opacity-70' :
                                                     appt.status === AppointmentStatus.CONFIRMED ? 'bg-emerald-900/80 border-emerald-500 text-white' :
                                                     appt.status === AppointmentStatus.PENDING ? 'bg-yellow-900/80 border-yellow-500 text-yellow-100' :
                                                     'bg-blue-900/80 border-blue-500 text-blue-100'
@@ -796,6 +813,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                         selectedAppointment.status === AppointmentStatus.CONFIRMED ? 'bg-emerald-950 text-emerald-500 border-emerald-900' : 
                                         selectedAppointment.status === AppointmentStatus.PENDING ? 'bg-yellow-950 text-yellow-500 border-yellow-900' :
                                         selectedAppointment.status === AppointmentStatus.COMPLETED ? 'bg-blue-950 text-blue-500 border-blue-900' :
+                                        selectedAppointment.status === AppointmentStatus.CANCELLED ? 'bg-red-950 text-red-500 border-red-900' :
                                         selectedAppointment.status === AppointmentStatus.BLOCKED ? 'bg-zinc-800 text-zinc-500 border-zinc-600 border-dashed' :
                                         'bg-zinc-800 text-zinc-400 border-zinc-700'
                                     }`}>
@@ -804,13 +822,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                               </div>
 
                               <div className="mt-8 flex gap-4">
-                                  {selectedAppointment.status !== AppointmentStatus.COMPLETED && selectedAppointment.status !== AppointmentStatus.BLOCKED && (
-                                      <button 
-                                        onClick={handleComplete}
-                                        className="flex-1 py-4 bg-emerald-700 text-white font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
-                                      >
-                                          <CheckCircle className="w-4 h-4" /> Complete
-                                      </button>
+                                  {selectedAppointment.status !== AppointmentStatus.COMPLETED && selectedAppointment.status !== AppointmentStatus.CANCELLED && selectedAppointment.status !== AppointmentStatus.BLOCKED && (
+                                      <>
+                                          <button 
+                                            onClick={handleComplete}
+                                            className="flex-1 py-4 bg-emerald-700 text-white font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                                          >
+                                              <CheckCircle className="w-4 h-4" /> Complete
+                                          </button>
+                                          <button 
+                                            onClick={handleCancel}
+                                            className="flex-1 py-4 bg-red-700 text-white font-bold uppercase tracking-widest hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                                          >
+                                              <XCircle className="w-4 h-4" /> Cancel
+                                          </button>
+                                      </>
                                   )}
                                   <button 
                                     onClick={handleEditClick}

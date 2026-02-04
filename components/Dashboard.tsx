@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Appointment, BusinessProfile, AppointmentStatus, ClientRating } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
-import { Calendar, Clock, DollarSign, MoreVertical, Star, ArrowRight, CheckCircle, TrendingUp, Trash2, Edit3, X, Save, Ban } from 'lucide-react';
+import { Calendar, Clock, DollarSign, MoreVertical, Star, ArrowRight, CheckCircle, TrendingUp, Trash2, Edit3, X, Save, Ban, XCircle } from 'lucide-react';
 import { formatTime } from '../constants';
 
 interface DashboardProps {
@@ -205,6 +205,14 @@ const Dashboard: React.FC<DashboardProps> = ({
         onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
     };
 
+    const handleCancel = (e: React.MouseEvent, appt: Appointment) => {
+        e.stopPropagation();
+        if(confirm("Are you sure you want to cancel this appointment?")) {
+            setActiveMenuId(null);
+            onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
+        }
+    };
+
     const handleDelete = (id: string) => {
         if(confirm("Are you sure you want to remove this appointment?")) {
             onRemoveAppointment(id);
@@ -351,6 +359,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <span className={`text-[10px] px-2 py-1 uppercase tracking-wider font-bold rounded-sm ${
                                                 appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-100 dark:bg-zinc-800 text-green-600 dark:text-green-500 border border-zinc-200 dark:border-green-900' : 
                                                 appt.status === AppointmentStatus.COMPLETED ? 'bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-500 border border-zinc-200 dark:border-blue-900' :
+                                                appt.status === AppointmentStatus.CANCELLED ? 'bg-zinc-100 dark:bg-zinc-800 text-red-600 dark:text-red-500 border border-zinc-200 dark:border-red-900' :
                                                 appt.status === AppointmentStatus.BLOCKED ? 'bg-zinc-100 dark:bg-zinc-900/50 text-zinc-500 border border-zinc-200 dark:border-zinc-700 border-dashed' :
                                                 'bg-zinc-100 dark:bg-zinc-800 text-yellow-600 dark:text-yellow-500 border border-zinc-200 dark:border-yellow-900'
                                             }`}>{appt.status}</span>
@@ -365,13 +374,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                                         )}
                                     </div>
                                     
-                                    {appt.status !== AppointmentStatus.COMPLETED && !isBlocked && (
-                                        <button 
-                                            onClick={(e) => handleComplete(e, appt)}
-                                            className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-900 hover:bg-emerald-600 hover:text-white dark:hover:text-black hover:border-emerald-600 text-emerald-600 dark:text-emerald-500 text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2"
-                                        >
-                                            <CheckCircle className="w-3 h-3" /> Complete
-                                        </button>
+                                    {appt.status !== AppointmentStatus.COMPLETED && appt.status !== AppointmentStatus.CANCELLED && !isBlocked && (
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={(e) => handleComplete(e, appt)}
+                                                className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-900 hover:bg-emerald-600 hover:text-white dark:hover:text-black hover:border-emerald-600 text-emerald-600 dark:text-emerald-500 text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2"
+                                            >
+                                                <CheckCircle className="w-3 h-3" /> Complete
+                                            </button>
+                                            <button 
+                                                onClick={(e) => handleCancel(e, appt)}
+                                                className="px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900 hover:bg-red-600 hover:text-white dark:hover:text-black hover:border-red-600 text-red-600 dark:text-red-500 text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2"
+                                            >
+                                                <XCircle className="w-3 h-3" /> Cancel
+                                            </button>
+                                        </div>
                                     )}
 
                                     {/* Action Menu */}
