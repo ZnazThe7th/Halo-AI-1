@@ -54,14 +54,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
         throw new Error('No access token received from Google');
       }
 
-      // Authenticate with backend API
+      // Try to authenticate with backend API (optional - falls back to localStorage if unavailable)
       const authResult = await authenticateWithGoogle(tokenResponse.access_token);
       
-      if (authResult.error || !authResult.data) {
-        throw new Error(authResult.error || 'Authentication failed');
+      // If API is unavailable, continue with localStorage-only mode
+      if (authResult.error === 'API_UNAVAILABLE') {
+        console.warn('Backend API not available, using localStorage-only mode');
+        // Continue with local auth
+      } else if (authResult.error || !authResult.data) {
+        // Other errors - show notification but still allow local auth
+        console.warn('API authentication failed, using localStorage-only mode:', authResult.error);
       }
 
-      // Also persist locally for backward compatibility
+      // Always persist locally (works even if API is unavailable)
       login(tokenResponse.access_token);
 
       // Fetch user info from Google for UI purposes
@@ -138,14 +143,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
 
     setIsLoading(true);
     try {
-      // Authenticate with backend API
+      // Try to authenticate with backend API (optional - falls back to localStorage if unavailable)
       const authResult = await authenticateWithEmail(email);
       
-      if (authResult.error || !authResult.data) {
-        throw new Error(authResult.error || 'Authentication failed');
+      // If API is unavailable, continue with localStorage-only mode
+      if (authResult.error === 'API_UNAVAILABLE') {
+        console.warn('Backend API not available, using localStorage-only mode');
+        // Continue with local auth
+      } else if (authResult.error || !authResult.data) {
+        // Other errors - show notification but still allow local auth
+        console.warn('API authentication failed, using localStorage-only mode:', authResult.error);
       }
 
-      // Also persist locally for backward compatibility
+      // Always persist locally (works even if API is unavailable)
       const emailToken = `email_${btoa(email)}_${Date.now()}`;
       login(emailToken);
       

@@ -22,16 +22,22 @@ export async function authenticateWithGoogle(accessToken: string): Promise<ApiRe
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify({ accessToken }),
+      signal: AbortSignal.timeout(5000) // 5 second timeout
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
       return { error: error.error || 'Authentication failed' };
     }
 
     const data = await response.json();
     return { data };
-  } catch (error) {
+  } catch (error: any) {
+    // If it's a network error (backend not available), return a special error
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      console.warn('Backend API not available, will use localStorage-only mode');
+      return { error: 'API_UNAVAILABLE' }; // Special error code
+    }
     console.error('Google auth API error:', error);
     return { error: 'Failed to authenticate with server' };
   }
@@ -49,16 +55,22 @@ export async function authenticateWithEmail(email: string): Promise<ApiResponse<
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(5000) // 5 second timeout
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
       return { error: error.error || 'Authentication failed' };
     }
 
     const data = await response.json();
     return { data };
-  } catch (error) {
+  } catch (error: any) {
+    // If it's a network error (backend not available), return a special error
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      console.warn('Backend API not available, will use localStorage-only mode');
+      return { error: 'API_UNAVAILABLE' }; // Special error code
+    }
     console.error('Email auth API error:', error);
     return { error: 'Failed to authenticate with server' };
   }
@@ -108,19 +120,25 @@ export async function saveUserData(data: {
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify(data),
+      signal: AbortSignal.timeout(5000) // 5 second timeout
     });
 
     if (!response.ok) {
       if (response.status === 401) {
         return { error: 'Not authenticated' };
       }
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
       return { error: error.error || 'Failed to save data' };
     }
 
     const result = await response.json();
     return { data: result };
-  } catch (error) {
+  } catch (error: any) {
+    // If it's a network error (backend not available), return special error
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      console.warn('Backend API not available for saving data');
+      return { error: 'API_UNAVAILABLE' };
+    }
     console.error('Save data API error:', error);
     return { error: 'Failed to save data to server' };
   }
@@ -140,19 +158,25 @@ export async function loadUserData(): Promise<ApiResponse<{
     const response = await fetch(`${API_URL}/load`, {
       method: 'GET',
       credentials: 'include', // Include cookies
+      signal: AbortSignal.timeout(5000) // 5 second timeout
     });
 
     if (!response.ok) {
       if (response.status === 401) {
         return { error: 'Not authenticated' };
       }
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
       return { error: error.error || 'Failed to load data' };
     }
 
     const data = await response.json();
     return { data };
-  } catch (error) {
+  } catch (error: any) {
+    // If it's a network error (backend not available), return special error
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      console.warn('Backend API not available for loading data');
+      return { error: 'API_UNAVAILABLE' };
+    }
     console.error('Load data API error:', error);
     return { error: 'Failed to load data from server' };
   }

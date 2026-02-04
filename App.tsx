@@ -56,7 +56,12 @@ const App: React.FC = () => {
           const result = await loadUserData();
           
           if (result.error) {
-            console.warn('Failed to load data from API:', result.error);
+            // If API is unavailable, silently fall back to localStorage (this is expected)
+            if (result.error === 'API_UNAVAILABLE') {
+              console.info('Backend API not available, using localStorage for data persistence');
+            } else {
+              console.warn('Failed to load data from API:', result.error);
+            }
             // Fall back to localStorage if API fails
             const emailFromToken = getUserEmailFromToken(accessToken);
             const email = emailFromToken || businessProfile.email;
@@ -128,7 +133,12 @@ const App: React.FC = () => {
           });
           
           if (result.error) {
-            console.warn('Failed to save data to API:', result.error);
+            // If API is unavailable, silently fall back to localStorage (this is expected)
+            if (result.error === 'API_UNAVAILABLE') {
+              console.info('Backend API not available, using localStorage for data persistence');
+            } else {
+              console.warn('Failed to save data to API:', result.error);
+            }
             // Fall back to localStorage if API fails
             const storageKey = getStorageKey(businessProfile.email);
             const dataToSave = {
