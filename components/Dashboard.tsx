@@ -200,6 +200,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const handleComplete = (e: React.MouseEvent, appt: Appointment) => {
         e.stopPropagation();
+        // If an action menu is open, close it so it can't block interactions
+        setActiveMenuId(null);
         onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
     };
 
@@ -398,11 +400,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             </div>
                                         )}
                                     </div>
-                                    
-                                    {/* Click-outside listener mockup (simple overlay) */}
-                                    {activeMenuId === appt.id && (
-                                        <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)}></div>
-                                    )}
                                 </div>
                             )}) : (
                                 <div className="p-10 text-center text-zinc-500 uppercase tracking-widest text-sm flex flex-col items-center justify-center h-full">
@@ -488,6 +485,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
             </div>
+
+            {/* Single click-outside overlay for action menu (prevents multiple overlays and blocked buttons) */}
+            {activeMenuId && (
+                <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setActiveMenuId(null)}
+                />
+            )}
 
              {/* Edit Appointment Modal */}
             {editingAppt && (
