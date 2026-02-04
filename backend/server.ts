@@ -320,15 +320,26 @@ app.post('/logout', (req, res) => {
 });
 
 // POST /send-daily-emails - Send daily emails to users with dailyEmailEnabled (called by cron job)
-// This endpoint should be protected with a secret key in production
+// This endpoint can be called by authenticated users for testing, or by cron job with secret
 app.post('/send-daily-emails', async (req, res) => {
   try {
     const cronSecret = req.headers['x-cron-secret'] || req.body.secret;
+    const isTest = req.body.test === true;
     const expectedSecret = process.env.CRON_SECRET || 'your-secret-key-change-in-production';
     
-    // Basic security check (in production, use proper authentication)
-    if (cronSecret !== expectedSecret) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // If it's a test request from authenticated user, verify session instead of secret
+    if (isTest) {
+      const email = verifySession(req);
+      if (!email) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      // For test, only send to the authenticated user
+      console.log(`Test daily email requested by: ${email}`);
+    } else {
+      // For cron job, require secret
+      if (cronSecret !== expectedSecret) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
 
     // Get current date in CST (Central Standard Time)
@@ -341,19 +352,46 @@ app.post('/send-daily-emails', async (req, res) => {
       day: 'numeric' 
     });
 
-    // Get all users with dailyEmailEnabled = true
-    const { data: allUsers, error: fetchError } = await supabase
-      .from('user_data')
-      .select('email, business_profile, appointments, expenses')
-      .not('business_profile', 'is', null);
+    // Get users - if test, only get the authenticated user
+    let allUsers: any[] = [];
+    if (isTest) {
+      const email = verifySession(req);
+      if (!email) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { data: userData, error: fetchError } = await supabase
+        .from('user_data')
+        .select('email, business_profile, appointments, expenses')
+        .eq('email', email)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching user:', fetchError);
+        return res.status(500).json({ error: 'Failed to fetch user data' });
+      }
+      
+      if (userData) {
+        allUsers = [userData];
+      }
+    } else {
+      // Get all users with dailyEmailEnabled = true
+      const { data: users, error: fetchError } = await supabase
+        .from('user_data')
+        .select('email, business_profile, appointments, expenses')
+        .not('business_profile', 'is', null);
 
-    if (fetchError) {
-      console.error('Error fetching users:', fetchError);
-      return res.status(500).json({ error: 'Failed to fetch users' });
+      if (fetchError) {
+        console.error('Error fetching users:', fetchError);
+        return res.status(500).json({ error: 'Failed to fetch users' });
+      }
+
+      if (users) {
+        allUsers = users;
+      }
     }
 
     if (!allUsers || allUsers.length === 0) {
-      return res.json({ message: 'No users found', sent: 0 });
+      return res.json({ message: isTest ? 'No user data found' : 'No users found', sent: 0 });
     }
 
     let sentCount = 0;
@@ -364,8 +402,9 @@ app.post('/send-daily-emails', async (req, res) => {
       try {
         const businessProfile = user.business_profile;
         
-        // Check if daily emails are enabled
-        if (!businessProfile || !businessProfile.dailyEmailEnabled) {
+        // For test mode, skip the dailyEmailEnabled check (send anyway)
+        // For cron mode, check if daily emails are enabled
+        if (!isTest && (!businessProfile || !businessProfile.dailyEmailEnabled)) {
           continue;
         }
 

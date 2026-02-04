@@ -3,7 +3,8 @@
  * Handles authentication and data persistence
  */
 
-const API_URL = import.meta.env.VITE_API_URL || process.env.VITE_API_URL || 'http://localhost:3001';
+// @ts-ignore - Vite environment variables
+const API_URL = import.meta.env.VITE_API_URL || (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:3001';
 
 interface ApiResponse<T> {
   data?: T;
@@ -245,5 +246,36 @@ export async function logout(): Promise<ApiResponse<{ success: boolean }>> {
   } catch (error) {
     console.error('Logout API error:', error);
     return { error: 'Failed to logout from server' };
+  }
+}
+
+/**
+ * Send test daily email (for testing purposes)
+ */
+export async function sendTestDailyEmail(): Promise<ApiResponse<{ message: string; sent: number }>> {
+  try {
+    const response = await fetch(`${API_URL}/send-daily-emails`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Include cookies for authentication
+      body: JSON.stringify({ test: true }), // Mark as test
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
+      return { error: error.error || 'Failed to send test email' };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      return { error: 'API_UNAVAILABLE' };
+    }
+    console.error('Send test email API error:', error);
+    return { error: 'Failed to send test email' };
   }
 }

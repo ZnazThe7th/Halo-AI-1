@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { BusinessProfile, Service } from '../types';
-import { Save, Plus, X, Edit3, Trash2, Store, Clock, DollarSign, Timer, Calculator, Moon, Sun, Camera, Upload, LogOut, Mail } from 'lucide-react';
+import { Save, Plus, X, Edit3, Trash2, Store, Clock, DollarSign, Timer, Calculator, Moon, Sun, Camera, Upload, LogOut, Mail, Send } from 'lucide-react';
+import { sendTestDailyEmail } from '../services/apiService';
 
 interface SettingsViewProps {
   business: BusinessProfile;
@@ -15,6 +16,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailStatus, setTestEmailStatus] = useState<{ success: boolean; message: string } | null>(null);
 
   // Form States
   const [profileForm, setProfileForm] = useState({
@@ -99,6 +102,48 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
     if (confirm('Are you sure you want to delete this service?')) {
       const updatedServices = business.services.filter(s => s.id !== id);
       onUpdate({ ...business, services: updatedServices });
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!business.email || business.email === '') {
+      alert('Please set your email address in your profile first.');
+      return;
+    }
+
+    setIsSendingTestEmail(true);
+    setTestEmailStatus(null);
+
+    try {
+      const result = await sendTestDailyEmail();
+      
+      if (result.error) {
+        if (result.error === 'API_UNAVAILABLE') {
+          setTestEmailStatus({
+            success: false,
+            message: 'Backend API not available. Please make sure your backend server is running and VITE_API_URL is configured.'
+          });
+        } else {
+          setTestEmailStatus({
+            success: false,
+            message: result.error || 'Failed to send test email'
+          });
+        }
+      } else if (result.data) {
+        setTestEmailStatus({
+          success: true,
+          message: `Test email sent! Check ${business.email} for your daily schedule report.`
+        });
+      }
+    } catch (error) {
+      setTestEmailStatus({
+        success: false,
+        message: 'An error occurred while sending the test email.'
+      });
+    } finally {
+      setIsSendingTestEmail(false);
+      // Auto-hide status after 5 seconds
+      setTimeout(() => setTestEmailStatus(null), 5000);
     }
   };
 
@@ -272,12 +317,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
 
       {/* Email Notifications */}
       <section className="mb-12 border-t border-zinc-200 dark:border-zinc-800 pt-8">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
               <Mail className="w-5 h-5 text-orange-600" /> Daily Email Reports
             </h2>
-            <p className="text-sm text-zinc-500 mt-1">Receive daily emails with your schedule, completed appointments, earnings, and expense reports.</p>
+            <p className="text-sm text-zinc-500 mt-1">Receive daily emails with your schedule, completed appointments, earnings, and expense reports at 5am CST.</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input
@@ -290,11 +335,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
           </label>
         </div>
         {business.dailyEmailEnabled && (
-          <div className="mt-4 p-4 bg-orange-600/10 border border-orange-600/20 rounded-sm">
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              <strong>Note:</strong> Daily emails will be sent to <strong>{business.email || 'your email address'}</strong>. 
-              Make sure your email is configured correctly in your profile.
-            </p>
+          <div className="space-y-4">
+            <div className="p-4 bg-orange-600/10 border border-orange-600/20 rounded-sm">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-3">
+                <strong>Note:</strong> Daily emails will be sent to <strong>{business.email || 'your email address'}</strong> at 5am CST. 
+                Make sure your email is configured correctly in your profile and that your backend server has EMAIL_API_URL configured.
+              </p>
+              <button
+                onClick={handleSendTestEmail}
+                disabled={isSendingTestEmail || !business.email}
+                className={`flex items-center gap-2 px-4 py-2 bg-orange-600 text-black hover:bg-white transition-colors uppercase text-xs font-bold tracking-widest disabled:opacity-50 disabled:cursor-not-allowed ${isSendingTestEmail ? 'animate-pulse' : ''}`}
+              >
+                <Send className="w-4 h-4" />
+                {isSendingTestEmail ? 'Sending...' : 'Send Test Email Now'}
+              </button>
+            </div>
+            {testEmailStatus && (
+              <div className={`p-4 rounded-sm border ${
+                testEmailStatus.success 
+                  ? 'bg-emerald-600/10 border-emerald-600/20 text-emerald-600 dark:text-emerald-400' 
+                  : 'bg-red-600/10 border-red-600/20 text-red-600 dark:text-red-400'
+              }`}>
+                <p className="text-sm font-medium">{testEmailStatus.message}</p>
+              </div>
+            )}
           </div>
         )}
       </section>
