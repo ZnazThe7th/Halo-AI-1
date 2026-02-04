@@ -33,14 +33,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
     if (selectedAppointment) {
       const updatedAppt = appointments.find(a => a.id === selectedAppointment.id);
       if (updatedAppt) {
-        // Preserve displayTime if it exists
-        setSelectedAppointment({ 
-          ...updatedAppt, 
-          displayTime: selectedAppointment.displayTime || formatTime(updatedAppt.time) 
-        });
+        // Only update if something actually changed (avoid infinite loops)
+        const hasChanged = 
+          updatedAppt.status !== selectedAppointment.status ||
+          updatedAppt.clientName !== selectedAppointment.clientName ||
+          updatedAppt.date !== selectedAppointment.date ||
+          updatedAppt.time !== selectedAppointment.time ||
+          updatedAppt.serviceId !== selectedAppointment.serviceId;
+        
+        if (hasChanged) {
+          // Preserve displayTime if it exists
+          setSelectedAppointment({ 
+            ...updatedAppt, 
+            displayTime: selectedAppointment.displayTime || formatTime(updatedAppt.time) 
+          });
+        }
       }
     }
-  }, [appointments, selectedAppointment?.id]);
+  }, [appointments]);
 
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
