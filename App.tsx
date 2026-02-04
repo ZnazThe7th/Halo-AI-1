@@ -960,11 +960,11 @@ const App: React.FC = () => {
         </button>
       </nav>
 
-      {/* Floating AI Chat Button */}
+      {/* Floating AI Chat Button - Always visible, even when editing calendar */}
       {!isChatOpen && (
           <button 
             onClick={() => setIsChatOpen(true)}
-            className="fixed bottom-20 lg:bottom-8 right-4 lg:right-8 z-50 w-12 h-12 lg:w-14 lg:h-14 bg-orange-600 hover:bg-white text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,88,12,0.4)] flex items-center justify-center rounded-full group"
+            className="fixed bottom-20 lg:bottom-8 right-4 lg:right-8 z-[60] w-12 h-12 lg:w-14 lg:h-14 bg-orange-600 hover:bg-white text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,88,12,0.4)] flex items-center justify-center rounded-full group"
           >
             <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 group-hover:rotate-12 transition-transform" />
           </button>

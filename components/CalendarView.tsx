@@ -676,25 +676,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
        {/* Appointment Details/Edit Modal */}
        {selectedAppointment && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-zinc-950 border border-zinc-700 w-full max-w-lg shadow-2xl relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+              <div className="bg-zinc-950 border border-zinc-700 w-full max-w-lg shadow-2xl relative my-auto max-h-[95vh] overflow-y-auto">
                   <button 
                     onClick={() => setSelectedAppointment(null)}
-                    className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+                    className="sticky top-0 z-10 float-right m-4 sm:m-6 text-zinc-500 hover:text-white transition-colors bg-zinc-950/90 backdrop-blur-sm rounded-full p-2"
                   >
-                      <X className="w-6 h-6" />
+                      <X className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
 
-                  <div className="p-8">
-                      <div className="mb-6 border-b border-zinc-800 pb-4 flex justify-between items-center">
-                          <div>
-                            <h2 className="text-2xl font-bold text-white uppercase tracking-wider mb-1">
+                  <div className="p-4 sm:p-6 lg:p-8">
+                      <div className="mb-4 sm:mb-6 border-b border-zinc-800 pb-3 sm:pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+                          <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white uppercase tracking-wider mb-1 break-words">
                                 {isEditing ? (isNew ? (entryType === 'BLOCK' ? 'Block Time' : 'New Appointment') : 'Edit Entry') : (selectedAppointment.status === AppointmentStatus.BLOCKED ? 'Blocked Period' : 'Appointment Details')}
                             </h2>
-                            <p className="text-zinc-500 font-mono text-sm uppercase">ID: {selectedAppointment.id}</p>
+                            <p className="text-zinc-500 font-mono text-xs sm:text-sm uppercase truncate">ID: {selectedAppointment.id}</p>
                           </div>
                           {selectedAppointment.recurrence && !isEditing && (
-                              <div className="flex items-center gap-2 bg-zinc-900 border border-orange-900/50 px-3 py-1 rounded-sm">
+                              <div className="flex items-center gap-2 bg-zinc-900 border border-orange-900/50 px-2 sm:px-3 py-1 rounded-sm shrink-0">
                                   <Repeat className="w-3 h-3 text-orange-600" />
                                   <span className="text-[10px] uppercase font-bold text-orange-500 tracking-widest">Recurring</span>
                               </div>
@@ -702,7 +702,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                       </div>
 
                       {!isEditing ? (
-                          <div className="space-y-6">
+                          <div className="space-y-4 sm:space-y-6">
                               {/* Read Only View */}
                               {selectedAppointment.status === AppointmentStatus.BLOCKED ? (
                                     <div className="flex items-center gap-4 p-6 bg-zinc-900/50 border border-dashed border-zinc-700">
@@ -738,20 +738,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                 </div>
                               )}
 
-                              <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-4 bg-zinc-900 border border-zinc-800">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                    <div className="p-3 sm:p-4 bg-zinc-900 border border-zinc-800">
                                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-2">
                                             <CalendarIcon className="w-3 h-3" /> Date
                                         </p>
-                                        <p className="text-white font-mono">
+                                        <p className="text-white font-mono text-sm sm:text-base break-words">
                                             {selectedAppointment.date}
                                         </p>
                                     </div>
-                                    <div className="p-4 bg-zinc-900 border border-zinc-800">
+                                    <div className="p-3 sm:p-4 bg-zinc-900 border border-zinc-800">
                                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                                            <Clock className="w-3 h-3" /> Time ({selectedTimeZone.split('/')[1] || 'Local'})
+                                            <Clock className="w-3 h-3" /> Time ({selectedTimeZone.split('/')[selectedTimeZone.split('/').length - 1] || 'Local'})
                                         </p>
-                                        <p className="text-white font-mono text-xl">{selectedAppointment.displayTime}</p>
+                                        <p className="text-white font-mono text-lg sm:text-xl">{selectedAppointment.displayTime}</p>
                                     </div>
                               </div>
                               
@@ -847,7 +847,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                               </div>
                           </div>
                       ) : (
-                          <div className="space-y-6">
+                          <div className="space-y-4 sm:space-y-6">
                               {/* Edit Form */}
                               
                               {/* Type Switcher (Only if New) */}
@@ -855,13 +855,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                   <div className="flex border border-zinc-800 p-1 bg-zinc-900">
                                       <button 
                                         onClick={() => setEntryType('APPOINTMENT')}
-                                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${entryType === 'APPOINTMENT' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
+                                        className={`flex-1 py-2 sm:py-3 text-xs font-bold uppercase tracking-widest transition-colors ${entryType === 'APPOINTMENT' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
                                       >
                                           Appointment
                                       </button>
                                       <button 
                                         onClick={() => setEntryType('BLOCK')}
-                                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${entryType === 'BLOCK' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
+                                        className={`flex-1 py-2 sm:py-3 text-xs font-bold uppercase tracking-widest transition-colors ${entryType === 'BLOCK' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
                                       >
                                           Block Time
                                       </button>
@@ -874,10 +874,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                   </label>
                                   <input 
                                     type="text" 
-                                    value={editForm.clientName}
+                                    value={editForm.clientName || ''}
                                     onChange={e => setEditForm({...editForm, clientName: e.target.value})}
                                     placeholder={entryType === 'BLOCK' ? 'e.g. Lunch Break, Closed' : 'Client Name'}
-                                    className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none"
+                                    className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none text-sm sm:text-base"
                                   />
                               </div>
                               
@@ -886,7 +886,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                   <div>
                                       <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Service</label>
                                       <select
-                                          value={editForm.serviceId}
+                                          value={editForm.serviceId || ''}
                                           onChange={e => {
                                             const newServiceId = e.target.value;
                                             const service = business.services.find(s => s.id === newServiceId);
@@ -897,7 +897,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                               numberOfPeople: service?.pricePerPerson ? (editForm.numberOfPeople || 1) : undefined
                                             });
                                           }}
-                                          className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none appearance-none"
+                                          className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none appearance-none text-sm sm:text-base"
                                       >
                                           {business.services.map(s => (
                                               <option key={s.id} value={s.id}>
@@ -914,7 +914,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                         min="1"
                                         value={editForm.numberOfPeople || 1}
                                         onChange={e => setEditForm({...editForm, numberOfPeople: parseInt(e.target.value) || 1})}
-                                        className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono"
+                                        className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono text-sm sm:text-base"
                                         placeholder="1"
                                       />
                                     </div>
@@ -922,43 +922,43 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                 </>
                               )}
 
-                              <div className="grid grid-cols-2 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                   <div>
                                       <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Date</label>
                                       <input 
                                         type="date" 
-                                        value={editForm.date}
+                                        value={editForm.date || ''}
                                         onChange={e => setEditForm({...editForm, date: e.target.value})}
-                                        className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono"
+                                        className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono text-sm sm:text-base"
                                       />
                                   </div>
                                   <div>
                                       <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Time (24h format)</label>
                                       <input 
                                         type="time" 
-                                        value={editForm.time}
+                                        value={editForm.time || ''}
                                         onChange={e => setEditForm({...editForm, time: e.target.value})}
-                                        className="w-full p-3 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono"
+                                        className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none font-mono text-sm sm:text-base"
                                       />
                                   </div>
                               </div>
-                              <p className="text-[10px] text-zinc-500 -mt-2">Time is stored as entered and displayed in your selected timezone ({selectedTimeZone.split('/')[selectedTimeZone.split('/').length - 1] || selectedTimeZone}).</p>
+                              <p className="text-[10px] sm:text-xs text-zinc-500 -mt-1 sm:-mt-2">Time is stored as entered and displayed in your selected timezone ({selectedTimeZone.split('/')[selectedTimeZone.split('/').length - 1] || selectedTimeZone}).</p>
 
                               {/* Recurrence Editor */}
-                              <div className="border border-zinc-800 bg-zinc-900/50 p-4">
-                                  <div className="flex items-center justify-between mb-4">
+                              <div className="border border-zinc-800 bg-zinc-900/50 p-3 sm:p-4">
+                                  <div className="flex items-center justify-between mb-3 sm:mb-4">
                                       <span className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                                          <Repeat className="w-4 h-4 text-orange-600" /> Recurring {entryType === 'BLOCK' ? 'Block' : 'Appointment'}
+                                          <Repeat className="w-3 h-3 sm:w-4 sm:h-4 text-orange-600" /> Recurring {entryType === 'BLOCK' ? 'Block' : 'Appointment'}
                                       </span>
-                                      <label className="relative inline-flex items-center cursor-pointer">
+                                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                         <input type="checkbox" checked={!!editForm.recurrence} onChange={toggleRecurrence} className="sr-only peer" />
                                         <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
                                       </label>
                                   </div>
                                   
                                   {editForm.recurrence && (
-                                      <div className="space-y-4 pt-4 border-t border-zinc-800 animate-fade-in">
-                                          <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-zinc-800 animate-fade-in">
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                               <div>
                                                   <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Frequency</label>
                                                   <select 
@@ -1003,16 +1003,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                   )}
                               </div>
 
-                              <div className="mt-8 flex gap-4">
+                              <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-2 sm:gap-4">
                                   <button 
                                     onClick={() => setIsEditing(false)}
-                                    className="flex-1 py-4 border border-zinc-700 text-white font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                    className="flex-1 py-3 sm:py-4 border border-zinc-700 text-white font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors text-xs sm:text-sm"
                                   >
                                       Cancel
                                   </button>
                                   <button 
                                     onClick={handleSave}
-                                    className="flex-1 py-4 bg-white text-black font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
+                                    className="flex-1 py-3 sm:py-4 bg-white text-black font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm"
                                   >
                                       <Save className="w-4 h-4" /> Save {isNew ? 'New' : 'Changes'}
                                   </button>
