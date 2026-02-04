@@ -198,26 +198,56 @@ const Dashboard: React.FC<DashboardProps> = ({
     const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
     const [scheduleTab, setScheduleTab] = useState<'today' | 'past'>('today');
 
+    // Confirmation modal state
+    const [confirmModal, setConfirmModal] = useState<{ show: boolean; message: string; onConfirm: () => void } | null>(null);
+
     const handleComplete = (e: React.MouseEvent, appt: Appointment) => {
         e.stopPropagation();
-        // If an action menu is open, close it so it can't block interactions
+        // Close menu immediately (non-blocking UI update)
         setActiveMenuId(null);
-        onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
+        // Use requestAnimationFrame to defer update to next frame (non-blocking)
+        requestAnimationFrame(() => {
+            onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
+        });
     };
 
     const handleCancel = (e: React.MouseEvent, appt: Appointment) => {
         e.stopPropagation();
-        if(confirm("Are you sure you want to cancel this appointment?")) {
-            setActiveMenuId(null);
-            onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
-        }
+        // Close menu immediately (non-blocking UI update)
+        setActiveMenuId(null);
+        // Use requestAnimationFrame to defer modal opening to next frame (non-blocking)
+        requestAnimationFrame(() => {
+            setConfirmModal({
+                show: true,
+                message: "Are you sure you want to cancel this appointment?",
+                onConfirm: () => {
+                    setConfirmModal(null);
+                    // Use requestAnimationFrame to defer update (non-blocking)
+                    requestAnimationFrame(() => {
+                        onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
+                    });
+                }
+            });
+        });
     };
 
     const handleDelete = (id: string) => {
-        if(confirm("Are you sure you want to remove this appointment?")) {
-            onRemoveAppointment(id);
-            setActiveMenuId(null);
-        }
+        // Close menu immediately (non-blocking UI update)
+        setActiveMenuId(null);
+        // Use requestAnimationFrame to defer modal opening to next frame (non-blocking)
+        requestAnimationFrame(() => {
+            setConfirmModal({
+                show: true,
+                message: "Are you sure you want to remove this appointment?",
+                onConfirm: () => {
+                    setConfirmModal(null);
+                    // Use requestAnimationFrame to defer update (non-blocking)
+                    requestAnimationFrame(() => {
+                        onRemoveAppointment(id);
+                    });
+                }
+            });
+        });
     };
 
     const handleSaveEdit = () => {
@@ -579,6 +609,34 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </button>
                     </div>
                 </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal */}
+            {confirmModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 w-full max-w-md shadow-2xl">
+                        <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
+                            <h3 className="font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Confirm Action</h3>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-zinc-700 dark:text-zinc-300 mb-6">{confirmModal.message}</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setConfirmModal(null)}
+                                    className="flex-1 py-3 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors font-bold uppercase tracking-widest text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmModal.onConfirm}
+                                    className="flex-1 py-3 bg-red-600 text-white hover:bg-red-700 transition-colors font-bold uppercase tracking-widest text-xs"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
