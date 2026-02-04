@@ -270,6 +270,35 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
         </div>
       </section>
 
+      {/* Email Notifications */}
+      <section className="mb-12 border-t border-zinc-200 dark:border-zinc-800 pt-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+              <Mail className="w-5 h-5 text-orange-600" /> Daily Email Reports
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">Receive daily emails with your schedule, completed appointments, earnings, and expense reports.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={business.dailyEmailEnabled || false}
+              onChange={(e) => onUpdate({ ...business, dailyEmailEnabled: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-14 h-7 bg-zinc-300 dark:bg-zinc-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-orange-600"></div>
+          </label>
+        </div>
+        {business.dailyEmailEnabled && (
+          <div className="mt-4 p-4 bg-orange-600/10 border border-orange-600/20 rounded-sm">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <strong>Note:</strong> Daily emails will be sent to <strong>{business.email || 'your email address'}</strong>. 
+              Make sure your email is configured correctly in your profile.
+            </p>
+          </div>
+        )}
+      </section>
+
       {/* Account Actions */}
       {isAuthenticated && (
         <section className="border-t border-zinc-200 dark:border-zinc-800 pt-8">

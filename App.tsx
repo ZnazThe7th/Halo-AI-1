@@ -338,6 +338,101 @@ const App: React.FC = () => {
     setExpenses(expenses.filter(e => e.id !== id));
   };
 
+  const handleResetEarnings = async () => {
+    if (!confirm('Are you sure you want to reset all earnings? This will remove all completed appointments and expenses. A summary email will be sent to your email address.')) {
+      return;
+    }
+
+    try {
+      // Collect all completed appointments and expenses before clearing
+      const completedAppointments = appointments.filter(a => a.status === AppointmentStatus.COMPLETED);
+      const allExpenses = [...expenses];
+
+      // Calculate earnings before reset
+      const getAppointmentPrice = (appt: Appointment): number => {
+        const service = businessProfile.services.find(s => s.id === appt.serviceId);
+        if (!service) return 0;
+        if (service.pricePerPerson) {
+          const numPeople = appt.numberOfPeople || (appt.clientIds?.length || appt.clientNames?.length || 1);
+          return service.price * numPeople;
+        }
+        return service.price;
+      };
+
+      const grossRevenue = completedAppointments.reduce((total, appt) => total + getAppointmentPrice(appt), 0);
+      const totalExpenses = allExpenses.reduce((total, exp) => total + exp.amount, 0);
+      const writeOffs = allExpenses
+        .filter(exp => ['Supplies', 'Rent', 'Marketing'].includes(exp.category))
+        .reduce((total, exp) => total + exp.amount, 0);
+      const taxableIncome = Math.max(0, grossRevenue - writeOffs);
+      const estimatedTax = taxableIncome * (businessProfile.taxRate / 100);
+      const netEarnings = grossRevenue - totalExpenses - estimatedTax;
+
+      // Prepare appointment data for email
+      const appointmentData = completedAppointments.map(appt => {
+        const service = businessProfile.services.find(s => s.id === appt.serviceId);
+        const price = getAppointmentPrice(appt);
+        return {
+          date: appt.date,
+          time: appt.time,
+          clientName: appt.clientName || 'Unknown Client',
+          serviceName: service?.name || 'Unknown Service',
+          amount: price
+        };
+      });
+
+      // Prepare expense data for email
+      const expenseData = allExpenses.map(exp => ({
+        name: exp.name,
+        category: exp.category,
+        amount: exp.amount,
+        date: exp.date
+      }));
+
+      // Generate and send reset email
+      const { sendEmail, generateEarningsResetEmailHTML } = await import('./services/emailService');
+      const resetDate = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const emailSent = await sendEmail({
+        to: businessProfile.email || 'noreply@halo.app',
+        subject: `Earnings Reset - ${businessProfile.name}`,
+        html: generateEarningsResetEmailHTML(
+          businessProfile.name,
+          businessProfile.ownerName,
+          resetDate,
+          completedAppointments.length,
+          grossRevenue,
+          totalExpenses,
+          estimatedTax,
+          netEarnings,
+          appointmentData,
+          expenseData
+        )
+      });
+
+      if (emailSent) {
+        console.log('Earnings reset email sent successfully');
+      } else {
+        console.warn('Failed to send earnings reset email');
+      }
+
+      // Clear completed appointments and all expenses
+      setAppointments(prev => prev.filter(a => a.status !== AppointmentStatus.COMPLETED));
+      setExpenses([]);
+
+      alert('Earnings have been reset. A summary email has been sent to your email address.');
+    } catch (error) {
+      console.error('Error resetting earnings:', error);
+      alert('An error occurred while resetting earnings. Please try again.');
+    }
+  };
+
   const handleAddRating = (rating: Omit<ClientRating, 'id'>) => {
     const newRating: ClientRating = {
       ...rating,
@@ -482,6 +577,7 @@ const App: React.FC = () => {
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
             onUpdateBusiness={handleUpdateBusiness}
+            onResetEarnings={handleResetEarnings}
         />;
 
       case ViewState.CLIENTS:

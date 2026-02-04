@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Appointment, AppointmentStatus, BusinessProfile, Expense } from '../types';
-import { DollarSign, TrendingUp, PieChart, Plus, Trash2, Calculator, Briefcase, Download, FileText, CheckSquare, Square, Printer, Target, Edit3 } from 'lucide-react';
+import { DollarSign, TrendingUp, PieChart, Plus, Trash2, Calculator, Briefcase, Download, FileText, CheckSquare, Square, Printer, Target, Edit3, RotateCcw } from 'lucide-react';
 
 interface MyBusinessViewProps {
   business: BusinessProfile;
@@ -11,6 +11,8 @@ interface MyBusinessViewProps {
   onDeleteExpense: (id: string) => void;
   // Prop to update business profile (for goal setting)
   onUpdateBusiness?: (profile: BusinessProfile) => void;
+  // Prop for earnings reset
+  onResetEarnings?: () => void;
 }
 
 const MyBusinessView: React.FC<MyBusinessViewProps> = ({ 
@@ -19,7 +21,8 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
   expenses,
   onAddExpense,
   onDeleteExpense,
-  onUpdateBusiness
+  onUpdateBusiness,
+  onResetEarnings
 }) => {
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({
     name: '',
@@ -189,13 +192,24 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
             </h1>
             <p className="text-zinc-500">Financial overview, tax estimation, and expense tracking.</p>
         </div>
-        <button 
-            onClick={handleDownloadExcel}
-            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors"
-        >
-            <Download className="w-4 h-4 text-orange-600" />
-            Download Excel Report
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button 
+              onClick={handleDownloadExcel}
+              className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors"
+          >
+              <Download className="w-4 h-4 text-orange-600" />
+              Download Excel Report
+          </button>
+          {onResetEarnings && (
+            <button 
+                onClick={onResetEarnings}
+                className="flex items-center gap-2 bg-red-900/30 hover:bg-red-900/50 border border-red-700 text-red-400 hover:text-red-300 px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors"
+            >
+                <RotateCcw className="w-4 h-4" />
+                Reset Earnings
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Goal Section (New) */}

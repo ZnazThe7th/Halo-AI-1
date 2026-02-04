@@ -42,6 +42,7 @@ export interface BusinessProfile {
     end: string;   // HH:mm
   };
   staff?: Staff[]; // People who work with the business
+  dailyEmailEnabled?: boolean; // Toggle for daily email reports
 }
 
 export interface Client {

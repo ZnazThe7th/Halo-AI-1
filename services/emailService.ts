@@ -162,3 +162,320 @@ export function generateFollowUpEmailHTML(
     </html>
   `;
 }
+
+/**
+ * Generate daily email report HTML
+ * Includes: schedule, completed events, earnings after taxes, expense report
+ */
+export function generateDailyEmailHTML(
+  businessName: string,
+  ownerName: string,
+  date: string,
+  schedule: Array<{ time: string; clientName: string; serviceName: string; status: string }>,
+  completed: Array<{ date: string; time: string; clientName: string; serviceName: string; amount: number }>,
+  grossRevenue: number,
+  totalExpenses: number,
+  estimatedTax: number,
+  netEarnings: number,
+  expenses: Array<{ name: string; category: string; amount: number; date: string }>
+): string {
+  const scheduleRows = schedule.length > 0 
+    ? schedule.map(item => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.time}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.clientName}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.serviceName}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.status}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="4" style="padding: 8px; text-align: center; color: #999;">No appointments scheduled</td></tr>';
+
+  const completedRows = completed.length > 0
+    ? completed.map(item => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.date}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.time}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.clientName}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.serviceName}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">$${item.amount.toFixed(2)}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="5" style="padding: 8px; text-align: center; color: #999;">No completed appointments</td></tr>';
+
+  const expenseRows = expenses.length > 0
+    ? expenses.map(item => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.date}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.category}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #dc2626;">-$${item.amount.toFixed(2)}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="4" style="padding: 8px; text-align: center; color: #999;">No expenses recorded</td></tr>';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: #ea580c; color: #000; padding: 30px; text-align: center; }
+        .content { background: #ffffff; padding: 30px; }
+        .section { margin: 30px 0; }
+        .section-title { font-size: 18px; font-weight: bold; color: #ea580c; margin-bottom: 15px; border-bottom: 2px solid #ea580c; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th { background: #f4f4f5; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f9fafb; padding: 20px; border-left: 4px solid #ea580c; }
+        .stat-label { font-size: 12px; text-transform: uppercase; color: #666; font-weight: bold; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #000; margin-top: 5px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; background: #f4f4f5; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Daily Report - ${businessName}</h1>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">${date}</p>
+        </div>
+        <div class="content">
+          <p>Hello ${ownerName},</p>
+          <p>Here's your daily business summary for <strong>${date}</strong>:</p>
+
+          <!-- Today's Schedule -->
+          <div class="section">
+            <div class="section-title">📅 Today's Schedule</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Client</th>
+                  <th>Service</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${scheduleRows}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Completed Appointments -->
+          <div class="section">
+            <div class="section-title">✅ Completed Appointments</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Client</th>
+                  <th>Service</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${completedRows}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Financial Summary -->
+          <div class="section">
+            <div class="section-title">💰 Earnings After Taxes</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Gross Revenue</div>
+                <div class="stat-value">$${grossRevenue.toFixed(2)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Total Expenses</div>
+                <div class="stat-value" style="color: #dc2626;">-$${totalExpenses.toFixed(2)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Estimated Tax</div>
+                <div class="stat-value" style="color: #d97706;">-$${estimatedTax.toFixed(2)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Net Earnings</div>
+                <div class="stat-value" style="color: #16a34a;">$${netEarnings.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Expense Report -->
+          <div class="section">
+            <div class="section-title">📊 Expense Report</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expenseRows}
+              </tbody>
+            </table>
+          </div>
+
+          <p style="margin-top: 30px;">Have a great day!</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated daily report from Halo Assistant.</p>
+          <p>You can manage your email preferences in Settings.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generate earnings reset email HTML
+ * Documents what was cleared before resetting earnings
+ */
+export function generateEarningsResetEmailHTML(
+  businessName: string,
+  ownerName: string,
+  resetDate: string,
+  totalAppointments: number,
+  grossRevenue: number,
+  totalExpenses: number,
+  estimatedTax: number,
+  netEarnings: number,
+  appointments: Array<{ date: string; time: string; clientName: string; serviceName: string; amount: number }>,
+  expenses: Array<{ name: string; category: string; amount: number; date: string }>
+): string {
+  const appointmentRows = appointments.length > 0
+    ? appointments.map(item => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.date}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.time}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.clientName}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.serviceName}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">$${item.amount.toFixed(2)}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="5" style="padding: 8px; text-align: center; color: #999;">No appointments to clear</td></tr>';
+
+  const expenseRows = expenses.length > 0
+    ? expenses.map(item => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.date}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.category}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #dc2626;">-$${item.amount.toFixed(2)}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="4" style="padding: 8px; text-align: center; color: #999;">No expenses to clear</td></tr>';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: #dc2626; color: #fff; padding: 30px; text-align: center; }
+        .content { background: #ffffff; padding: 30px; }
+        .section { margin: 30px 0; }
+        .section-title { font-size: 18px; font-weight: bold; color: #dc2626; margin-bottom: 15px; border-bottom: 2px solid #dc2626; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th { background: #f4f4f5; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
+        .warning-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f9fafb; padding: 20px; border-left: 4px solid #dc2626; }
+        .stat-label { font-size: 12px; text-transform: uppercase; color: #666; font-weight: bold; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #000; margin-top: 5px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; background: #f4f4f5; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>⚠️ Earnings Reset - ${businessName}</h1>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Reset Date: ${resetDate}</p>
+        </div>
+        <div class="content">
+          <p>Hello ${ownerName},</p>
+          <div class="warning-box">
+            <p style="margin: 0; font-weight: bold; color: #dc2626;">This document confirms that all earnings data has been reset.</p>
+            <p style="margin: 10px 0 0 0;">Please save this email for your records.</p>
+          </div>
+
+          <!-- Summary -->
+          <div class="section">
+            <div class="section-title">📊 Summary of Cleared Data</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Total Appointments</div>
+                <div class="stat-value">${totalAppointments}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Gross Revenue</div>
+                <div class="stat-value">$${grossRevenue.toFixed(2)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Total Expenses</div>
+                <div class="stat-value" style="color: #dc2626;">-$${totalExpenses.toFixed(2)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Net Earnings</div>
+                <div class="stat-value" style="color: #16a34a;">$${netEarnings.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cleared Appointments -->
+          <div class="section">
+            <div class="section-title">✅ Cleared Appointments</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Client</th>
+                  <th>Service</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${appointmentRows}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Cleared Expenses -->
+          <div class="section">
+            <div class="section-title">📊 Cleared Expenses</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expenseRows}
+              </tbody>
+            </table>
+          </div>
+
+          <p style="margin-top: 30px; font-weight: bold;">All earnings and expense data has been cleared. Your business profile has been reset for a fresh start.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated document from Halo Assistant.</p>
+          <p>Generated on ${resetDate}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}

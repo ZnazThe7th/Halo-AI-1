@@ -21,5 +21,6 @@ export const DEFAULT_BUSINESS: BusinessProfile = {
   monthlyRevenueGoal: 0,
   themePreference: 'dark',
   workingHours: { start: "09:00", end: "18:00" },
-  services: []
+  services: [],
+  dailyEmailEnabled: false
 };
