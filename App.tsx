@@ -269,42 +269,55 @@ const App: React.FC = () => {
   };
 
   const handleUpdateAppointment = async (updatedAppt: Appointment) => {
-    // Check if appointment was just completed
-    const previousAppt = appointments.find(a => a.id === updatedAppt.id);
-    const wasJustCompleted = previousAppt?.status !== AppointmentStatus.COMPLETED && 
-                             updatedAppt.status === AppointmentStatus.COMPLETED;
+    // Update appointment in state (or insert if it doesn't exist)
+    let shouldSendRatingEmail = false;
+    setAppointments(prev => {
+      const idx = prev.findIndex(a => a.id === updatedAppt.id);
+      const previousAppt = idx >= 0 ? prev[idx] : undefined;
+      shouldSendRatingEmail =
+        previousAppt?.status !== AppointmentStatus.COMPLETED &&
+        updatedAppt.status === AppointmentStatus.COMPLETED;
 
-    setAppointments(prev => prev.map(a => a.id === updatedAppt.id ? updatedAppt : a));
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updatedAppt;
+        return next;
+      }
+      return [...prev, updatedAppt];
+    });
 
-    // Send rating email if appointment was just completed
-    if (wasJustCompleted) {
-      const client = clients.find(c => c.id === updatedAppt.clientId);
-      if (client && client.email) {
-        const service = businessProfile.services.find(s => s.id === updatedAppt.serviceId);
-        const ratingLink = `${window.location.origin}/rate/${updatedAppt.id}?token=${encodeURIComponent(btoa(updatedAppt.id + ':' + client.id))}`;
-        
-        // Import and send email (will be handled asynchronously)
-        const { sendEmail, generateRatingEmailHTML } = await import('./services/emailService');
-        const { formatTime } = await import('./constants');
-        
-        const emailSent = await sendEmail({
-          to: client.email,
-          subject: `Rate Your Experience at ${businessProfile.name}`,
-          html: generateRatingEmailHTML(
-            client.name,
-            businessProfile.name,
-            updatedAppt.date,
-            formatTime(updatedAppt.time),
-            service?.name || 'Service',
-            ratingLink
-          )
-        });
+    // Send rating email if appointment was just completed (never block UI updates)
+    if (shouldSendRatingEmail) {
+      try {
+        const client = clients.find(c => c.id === updatedAppt.clientId);
+        if (client && client.email) {
+          const service = businessProfile.services.find(s => s.id === updatedAppt.serviceId);
+          const ratingLink = `${window.location.origin}/rate/${updatedAppt.id}?token=${encodeURIComponent(btoa(updatedAppt.id + ':' + client.id))}`;
 
-        if (emailSent) {
-          console.log(`Rating email sent to ${client.email}`);
-        } else {
-          console.warn(`Failed to send rating email to ${client.email}`);
+          const { sendEmail, generateRatingEmailHTML } = await import('./services/emailService');
+          const { formatTime } = await import('./constants');
+
+          const emailSent = await sendEmail({
+            to: client.email,
+            subject: `Rate Your Experience at ${businessProfile.name}`,
+            html: generateRatingEmailHTML(
+              client.name,
+              businessProfile.name,
+              updatedAppt.date,
+              formatTime(updatedAppt.time),
+              service?.name || 'Service',
+              ratingLink
+            )
+          });
+
+          if (emailSent) {
+            console.log(`Rating email sent to ${client.email}`);
+          } else {
+            console.warn(`Failed to send rating email to ${client.email}`);
+          }
         }
+      } catch (err) {
+        console.error('Error sending rating email:', err);
       }
     }
   };
