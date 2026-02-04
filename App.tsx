@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating } from './types';
+import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating, AppointmentStatus } from './types';
 import { DEFAULT_BUSINESS } from './constants';
 import Dashboard from './components/Dashboard';
 import BookingForm from './components/BookingForm';
