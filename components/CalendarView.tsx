@@ -28,6 +28,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment & { displayTime?: string } | null>(null);
   const [selectedTimeZone, setSelectedTimeZone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
+  // Sync selectedAppointment with appointments prop when it changes
+  useEffect(() => {
+    if (selectedAppointment) {
+      const updatedAppt = appointments.find(a => a.id === selectedAppointment.id);
+      if (updatedAppt) {
+        // Preserve displayTime if it exists
+        setSelectedAppointment({ 
+          ...updatedAppt, 
+          displayTime: selectedAppointment.displayTime || formatTime(updatedAppt.time) 
+        });
+      }
+    }
+  }, [appointments, selectedAppointment?.id]);
+
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Appointment>>({});
@@ -334,13 +348,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
       if (isNew) {
           onAddAppointment(updatedAppt);
+          // Close modal after adding
+          setSelectedAppointment(null);
+          setIsEditing(false);
+          setIsNew(false);
       } else {
           onUpdateAppointment(updatedAppt);
+          // Update local state to reflect changes immediately
+          const updatedWithDisplayTime = { ...updatedAppt, displayTime: formatTime(updatedAppt.time) };
+          setSelectedAppointment(updatedWithDisplayTime);
+          setIsEditing(false);
+          setIsNew(false);
+          // Keep modal open to show updated appointment
       }
-      
-      setSelectedAppointment(null);
-      setIsEditing(false);
-      setIsNew(false);
   };
 
   const handleComplete = () => {
@@ -348,7 +368,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
           const completedAppt = { ...selectedAppointment, status: AppointmentStatus.COMPLETED };
           onUpdateAppointment(completedAppt);
           // Update local state to reflect the change immediately
-          setSelectedAppointment(completedAppt);
+          // Keep displayTime if it exists
+          const updatedWithDisplayTime = { 
+              ...completedAppt, 
+              displayTime: selectedAppointment.displayTime || formatTime(completedAppt.time)
+          };
+          setSelectedAppointment(updatedWithDisplayTime);
       }
   };
 
@@ -487,7 +512,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                     return (
                                         <div 
                                             key={appt.id} 
-                                            onClick={(e) => { e.stopPropagation(); setSelectedAppointment(appt); setIsEditing(false); setIsNew(false); }}
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                // Get the latest appointment data from the appointments prop
+                                                const latestAppt = appointments.find(a => a.id === appt.id) || appt;
+                                                setSelectedAppointment({ ...latestAppt, displayTime: appt.displayTime });
+                                                setIsEditing(false); 
+                                                setIsNew(false); 
+                                            }}
                                             className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wide border-l-2 truncate cursor-pointer hover:brightness-110 transition-all ${
                                                 isBlocked ? 'bg-zinc-900/50 border-zinc-600 text-zinc-400 border-dashed italic' :
                                                 appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-800 border-emerald-500 text-white' : 
@@ -579,7 +611,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                        return (
                                            <div 
                                                 key={appt.id}
-                                                onClick={(e) => { e.stopPropagation(); setSelectedAppointment(appt); setIsEditing(false); setIsNew(false); }}
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    // Get the latest appointment data from the appointments prop
+                                                    const latestAppt = appointments.find(a => a.id === appt.id) || appt;
+                                                    setSelectedAppointment({ ...latestAppt, displayTime: appt.displayTime });
+                                                    setIsEditing(false); 
+                                                    setIsNew(false); 
+                                                }}
                                                 className={`absolute inset-x-1 rounded-sm p-2 text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
                                                     isBlocked ? 'bg-zinc-900 border-zinc-600 text-zinc-400 border-dashed opacity-80' :
                                                     appt.status === AppointmentStatus.CONFIRMED ? 'bg-emerald-900/80 border-emerald-500 text-white' :
