@@ -44,9 +44,42 @@ export async function authenticateWithGoogle(accessToken: string): Promise<ApiRe
 }
 
 /**
- * Authenticate with email (for email/password sign-in)
+ * Sign up with email and password
  */
-export async function authenticateWithEmail(email: string): Promise<ApiResponse<{ email: string; sessionId: string }>> {
+export async function signupWithEmail(email: string, password: string): Promise<ApiResponse<{ email: string; sessionId: string }>> {
+  try {
+    const response = await fetch(`${API_URL}/auth/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Include cookies
+      body: JSON.stringify({ email, password }),
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
+      return { error: error.error || 'Signup failed' };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    // If it's a network error (backend not available), return a special error
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      console.warn('Backend API not available, will use localStorage-only mode');
+      return { error: 'API_UNAVAILABLE' }; // Special error code
+    }
+    console.error('Signup API error:', error);
+    return { error: 'Failed to create account' };
+  }
+}
+
+/**
+ * Authenticate with email and password (for email/password sign-in)
+ */
+export async function authenticateWithEmail(email: string, password: string): Promise<ApiResponse<{ email: string; sessionId: string }>> {
   try {
     const response = await fetch(`${API_URL}/auth/email`, {
       method: 'POST',
@@ -54,7 +87,7 @@ export async function authenticateWithEmail(email: string): Promise<ApiResponse<
         'Content-Type': 'application/json',
       },
       credentials: 'include', // Include cookies
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password }),
       signal: AbortSignal.timeout(5000) // 5 second timeout
     });
 

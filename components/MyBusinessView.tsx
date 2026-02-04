@@ -118,10 +118,6 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
   }
 
   const handleDownloadExcel = () => {
-      // 1. Prepare Headers
-      const headers = ['Type', 'Date', 'Description', 'Category/Service', 'Amount'];
-      
-      // 2. Prepare Rows
       // Helper function to calculate appointment price (same as above)
       const getAppointmentPrice = (appt: Appointment): number => {
         const service = business.services.find(s => s.id === appt.serviceId);
@@ -154,13 +150,29 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
 
       const allRows = [...incomeRows, ...expenseRows].sort((a, b) => new Date(a[1] as string).getTime() - new Date(b[1] as string).getTime());
 
-      // 3. Convert to CSV string
+      // Add Financial Summary Section at the top
+      const summaryRows = [
+          ['', '', '', '', ''],
+          ['FINANCIAL SUMMARY', '', '', '', ''],
+          ['Gross Revenue', '', '', '', grossRevenue.toFixed(2)],
+          ['Total Expenses', '', '', '', -totalExpenses.toFixed(2)],
+          ['Estimated Tax', '', '', '', -estimatedTax.toFixed(2)],
+          ['Net Earnings', '', '', '', netEarnings.toFixed(2)],
+          ['', '', '', '', ''],
+          ['TRANSACTION DETAILS', '', '', '', ''],
+      ];
+
+      // 1. Prepare Headers
+      const headers = ['Type', 'Date', 'Description', 'Category/Service', 'Amount'];
+
+      // 2. Convert to CSV string
       const csvContent = [
+          ...summaryRows.map(row => row.join(',')),
           headers.join(','),
           ...allRows.map(row => row.join(','))
       ].join('\n');
 
-      // 4. Trigger Download
+      // 3. Trigger Download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);

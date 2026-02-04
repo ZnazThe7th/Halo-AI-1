@@ -3,6 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS user_data (
   email TEXT PRIMARY KEY,
+  password_hash TEXT, -- Hashed password for email/password authentication
   business_profile JSONB,
   clients JSONB DEFAULT '[]'::jsonb,
   appointments JSONB DEFAULT '[]'::jsonb,

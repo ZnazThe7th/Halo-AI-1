@@ -15,19 +15,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // Restore auth state from localStorage on mount
-  // Use try/finally to guarantee loading is always set to false
+  // Also check if we have a valid backend session
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('google_access_token');
-      if (saved) {
-        setAccessToken(saved);
+    const checkAuth = async () => {
+      try {
+        // First, check localStorage for existing token
+        const saved = localStorage.getItem('google_access_token');
+        if (saved) {
+          setAccessToken(saved);
+        }
+
+        // Also check if we have a valid backend session (for cross-device sync)
+        try {
+          const { getCurrentUser } = await import('./apiService');
+          const userResult = await getCurrentUser();
+          if (userResult.data && userResult.data.email) {
+            // We have a valid backend session - use email as token identifier
+            const emailToken = `email_${btoa(userResult.data.email)}_${Date.now()}`;
+            if (!saved) {
+              // Only set if we don't have a saved token (to preserve Google tokens)
+              setAccessToken(emailToken);
+              localStorage.setItem('google_access_token', emailToken);
+            }
+          }
+        } catch (e) {
+          // Backend check failed - that's okay, we'll use localStorage token
+          console.debug('Backend session check failed (this is normal if backend is unavailable)');
+        }
+      } catch (error) {
+        console.error('Error reading auth state:', error);
+      } finally {
+        // Always set loading to false, even if there's an error
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error reading auth state from localStorage:', error);
-    } finally {
-      // Always set loading to false, even if there's an error
-      setLoading(false);
-    }
+    };
+
+    checkAuth();
   }, []);
 
   const login = (token: string) => {
@@ -35,7 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(token);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Clear backend session if available
+    try {
+      const { logout: apiLogout } = await import('./apiService');
+      await apiLogout();
+    } catch (e) {
+      // Ignore errors - might not have backend
+    }
     localStorage.removeItem('google_access_token');
     setAccessToken(null);
   };

@@ -4,7 +4,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { generateResetCodeEmail } from '../services/geminiService';
 import { fetchGoogleUserInfo, extractBusinessName } from '../services/googleAuthService';
 import { useAuth } from '../services/authContext';
-import { authenticateWithGoogle, authenticateWithEmail } from '../services/apiService';
+import { authenticateWithGoogle, authenticateWithEmail, signupWithEmail } from '../services/apiService';
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '') as string;
 const HAS_GOOGLE_AUTH = GOOGLE_CLIENT_ID && 
@@ -143,27 +143,60 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
 
     setIsLoading(true);
     try {
-      // Try to authenticate with backend API (optional - falls back to localStorage if unavailable)
-      const authResult = await authenticateWithEmail(email);
-      
-      // If API is unavailable, continue with localStorage-only mode
-      if (authResult.error === 'API_UNAVAILABLE') {
-        console.warn('Backend API not available, using localStorage-only mode');
-        // Continue with local auth
-      } else if (authResult.error || !authResult.data) {
-        // Other errors - show notification but still allow local auth
-        console.warn('API authentication failed, using localStorage-only mode:', authResult.error);
-      }
-
-      // Always persist locally (works even if API is unavailable)
-      const emailToken = `email_${btoa(email)}_${Date.now()}`;
-      login(emailToken);
-      
-      setIsLoading(false);
       if (mode === 'signup') {
+        // Sign up with email and password
+        const signupResult = await signupWithEmail(email, password);
+        
+        if (signupResult.error === 'API_UNAVAILABLE') {
+          // Backend not available - fall back to localStorage-only mode
+          console.warn('Backend API not available, using localStorage-only mode');
+          const emailToken = `email_${btoa(email)}_${Date.now()}`;
+          login(emailToken);
+          setIsLoading(false);
+          onSignup(fullName, businessName, email);
+          return;
+        } else if (signupResult.error || !signupResult.data) {
+          // Show error and don't proceed
+          setIsLoading(false);
+          setNotification({
+            title: "Signup Error",
+            message: signupResult.error || "Failed to create account. Please try again."
+          });
+          return;
+        }
+
+        // Signup successful - create session token
+        const emailToken = `email_${btoa(email)}_${Date.now()}`;
+        login(emailToken);
+        setIsLoading(false);
         onSignup(fullName, businessName, email);
       } else {
-        onLogin(email); // Pass email for sign-in
+        // Sign in with email and password
+        const authResult = await authenticateWithEmail(email, password);
+        
+        if (authResult.error === 'API_UNAVAILABLE') {
+          // Backend not available - fall back to localStorage-only mode
+          console.warn('Backend API not available, using localStorage-only mode');
+          const emailToken = `email_${btoa(email)}_${Date.now()}`;
+          login(emailToken);
+          setIsLoading(false);
+          onLogin(email);
+          return;
+        } else if (authResult.error || !authResult.data) {
+          // Show error and don't proceed
+          setIsLoading(false);
+          setNotification({
+            title: "Authentication Error",
+            message: authResult.error || "Invalid email or password. Please try again."
+          });
+          return;
+        }
+
+        // Authentication successful - create session token
+        const emailToken = `email_${btoa(email)}_${Date.now()}`;
+        login(emailToken);
+        setIsLoading(false);
+        onLogin(email);
       }
     } catch (error) {
       console.error('Email authentication error:', error);
