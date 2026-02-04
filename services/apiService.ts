@@ -203,7 +203,17 @@ export async function loadUserData(): Promise<ApiResponse<{
     }
 
     const data = await response.json();
-    return { data };
+    
+    // Ensure all arrays exist (backend might return null)
+    return { 
+      data: {
+        businessProfile: data.businessProfile || null,
+        clients: data.clients || [],
+        appointments: data.appointments || [],
+        expenses: data.expenses || [],
+        ratings: data.ratings || []
+      }
+    };
   } catch (error: any) {
     // If it's a network error (backend not available), return special error
     if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {

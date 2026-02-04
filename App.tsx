@@ -53,6 +53,10 @@ const App: React.FC = () => {
     if (!authLoading && isAuthenticated && !dataLoaded) {
       const loadData = async () => {
         try {
+          // Get email from token to help with debugging
+          const emailFromToken = getUserEmailFromToken(accessToken);
+          console.log('🔄 Loading data for user:', emailFromToken || businessProfile.email || 'unknown');
+          
           const result = await loadUserData();
           
           if (result.error) {
@@ -62,20 +66,32 @@ const App: React.FC = () => {
             } else {
               console.warn('Failed to load data from API:', result.error);
             }
-            // Fall back to localStorage if API fails
-            const emailFromToken = getUserEmailFromToken(accessToken);
-            const email = emailFromToken || businessProfile.email;
-            if (email && email !== DEFAULT_BUSINESS.email) {
-              const storageKey = getStorageKey(email);
-              const saved = localStorage.getItem(storageKey);
-              if (saved) {
-                const data = JSON.parse(saved);
-                if (data.businessProfile) setBusinessProfile(data.businessProfile);
-                if (data.clients) setClients(data.clients);
-                if (data.appointments) setAppointments(data.appointments);
-                if (data.expenses) setExpenses(data.expenses);
-                if (data.ratings) setRatings(data.ratings);
+            // Fall back to localStorage if API fails (only if API is truly unavailable)
+            // This ensures cross-device sync when backend is available
+            if (result.error === 'API_UNAVAILABLE') {
+              console.warn('⚠️ Backend API not available - using localStorage (data will NOT sync across devices)');
+              const email = emailFromToken || businessProfile.email;
+              if (email && email !== DEFAULT_BUSINESS.email) {
+                const storageKey = getStorageKey(email);
+                const saved = localStorage.getItem(storageKey);
+                if (saved) {
+                  const data = JSON.parse(saved);
+                  if (data.businessProfile) setBusinessProfile(data.businessProfile);
+                  if (data.clients) setClients(data.clients);
+                  if (data.appointments) setAppointments(data.appointments);
+                  if (data.expenses) setExpenses(data.expenses);
+                  if (data.ratings) setRatings(data.ratings);
+                  console.log('📦 Loaded data from localStorage (API unavailable):', {
+                    appointments: data.appointments?.length || 0
+                  });
+                } else {
+                  console.log('📦 No localStorage data found for:', email);
+                }
               }
+            } else {
+              // API is available but returned an error - don't use localStorage
+              // This ensures we always use backend when it's configured
+              console.error('❌ Backend API error (not using localStorage fallback):', result.error);
             }
           } else if (result.data) {
             // Update business profile email if we got it from token
@@ -84,20 +100,62 @@ const App: React.FC = () => {
               setBusinessProfile(prev => ({ ...prev, email: emailFromToken }));
             }
             
+            // Always set data from backend, even if arrays are empty (this ensures sync)
             if (result.data.businessProfile) {
               setBusinessProfile(result.data.businessProfile);
             }
-            if (result.data.clients) {
-              setClients(result.data.clients);
-            }
-            if (result.data.appointments) {
-              setAppointments(result.data.appointments);
-            }
-            if (result.data.expenses) {
-              setExpenses(result.data.expenses);
-            }
-            if (result.data.ratings) {
-              setRatings(result.data.ratings);
+            // Set arrays - use empty array if not provided to ensure clean state
+            setClients(result.data.clients || []);
+            setAppointments(result.data.appointments || []);
+            setExpenses(result.data.expenses || []);
+            setRatings(result.data.ratings || []);
+            
+            console.log('✅ Loaded data from backend:', {
+              appointments: result.data.appointments?.length || 0,
+              clients: result.data.clients?.length || 0,
+              expenses: result.data.expenses?.length || 0
+            });
+            
+            // If backend data is empty but we have localStorage data, merge them
+            // This helps migrate data from localStorage to backend
+            const email = emailFromToken || result.data.businessProfile?.email || businessProfile.email;
+            if (email && email !== DEFAULT_BUSINESS.email) {
+              const storageKey = getStorageKey(email);
+              const saved = localStorage.getItem(storageKey);
+              if (saved) {
+                const localData = JSON.parse(saved);
+                // If backend has no appointments but localStorage does, use localStorage data
+                // This ensures data migration from localStorage to backend
+                if ((!result.data.appointments || result.data.appointments.length === 0) && 
+                    localData.appointments && localData.appointments.length > 0) {
+                  console.log('🔄 Migrating localStorage data to backend:', {
+                    appointments: localData.appointments.length
+                  });
+                  // Merge: use backend data as base, but add localStorage data if backend is empty
+                  const mergedData = {
+                    businessProfile: result.data.businessProfile || localData.businessProfile || businessProfile,
+                    clients: result.data.clients?.length > 0 ? result.data.clients : (localData.clients || []),
+                    appointments: result.data.appointments?.length > 0 ? result.data.appointments : (localData.appointments || []),
+                    expenses: result.data.expenses?.length > 0 ? result.data.expenses : (localData.expenses || []),
+                    ratings: result.data.ratings?.length > 0 ? result.data.ratings : (localData.ratings || [])
+                  };
+                  
+                  // Update state with merged data
+                  if (mergedData.businessProfile) setBusinessProfile(mergedData.businessProfile);
+                  setClients(mergedData.clients);
+                  setAppointments(mergedData.appointments);
+                  setExpenses(mergedData.expenses);
+                  setRatings(mergedData.ratings);
+                  
+                  // Save merged data to backend immediately
+                  setTimeout(async () => {
+                    const saveResult = await saveUserData(mergedData);
+                    if (!saveResult.error) {
+                      console.log('✅ Migrated data to backend successfully');
+                    }
+                  }, 500);
+                }
+              }
             }
           }
           setDataLoaded(true);
@@ -135,7 +193,7 @@ const App: React.FC = () => {
           if (result.error) {
             // If API is unavailable, silently fall back to localStorage (this is expected)
             if (result.error === 'API_UNAVAILABLE') {
-              console.info('Backend API not available, using localStorage for data persistence');
+              console.warn('⚠️ Backend API not available - data will NOT sync across devices. Please configure VITE_API_URL.');
             } else {
               console.warn('Failed to save data to API:', result.error);
             }
@@ -149,6 +207,12 @@ const App: React.FC = () => {
               ratings
             };
             localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+          } else {
+            console.log('✅ Saved data to backend:', {
+              appointments: appointments.length,
+              clients: clients.length,
+              expenses: expenses.length
+            });
           }
         } catch (error) {
           console.error('Error saving user data:', error);
