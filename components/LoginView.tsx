@@ -4,6 +4,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { generateResetCodeEmail } from '../services/geminiService';
 import { fetchGoogleUserInfo, extractBusinessName } from '../services/googleAuthService';
 import { useAuth } from '../services/authContext';
+import { authenticateWithGoogle, authenticateWithEmail } from '../services/apiService';
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '') as string;
 const HAS_GOOGLE_AUTH = GOOGLE_CLIENT_ID && 
@@ -53,10 +54,17 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
         throw new Error('No access token received from Google');
       }
 
-      // Persist the access token FIRST to prevent loading loops
+      // Authenticate with backend API
+      const authResult = await authenticateWithGoogle(tokenResponse.access_token);
+      
+      if (authResult.error || !authResult.data) {
+        throw new Error(authResult.error || 'Authentication failed');
+      }
+
+      // Also persist locally for backward compatibility
       login(tokenResponse.access_token);
 
-      // Fetch user info from Google
+      // Fetch user info from Google for UI purposes
       const userInfo = await fetchGoogleUserInfo(tokenResponse.access_token);
       
       setIsLoading(false);
@@ -76,7 +84,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
       setIsLoading(false);
       setNotification({
         title: "Authentication Error",
-        message: "Failed to authenticate with Google. Please try again."
+        message: error instanceof Error ? error.message : "Failed to authenticate with Google. Please try again."
       });
     }
   };
@@ -123,18 +131,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
     googleLogin();
   };
 
-  const handleSigninSignupSubmit = (e: React.FormEvent) => {
+  const handleSigninSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     if (mode === 'signup' && (!fullName || !businessName)) return;
 
     setIsLoading(true);
-    setTimeout(() => {
-      // Create a simple token for email/password auth (using email as identifier)
-      // In a real app, this would be a proper JWT from your backend
-      const emailToken = `email_${btoa(email)}_${Date.now()}`;
+    try {
+      // Authenticate with backend API
+      const authResult = await authenticateWithEmail(email);
       
-      // Persist auth state for email/password sign-in
+      if (authResult.error || !authResult.data) {
+        throw new Error(authResult.error || 'Authentication failed');
+      }
+
+      // Also persist locally for backward compatibility
+      const emailToken = `email_${btoa(email)}_${Date.now()}`;
       login(emailToken);
       
       setIsLoading(false);
@@ -143,7 +155,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
       } else {
         onLogin(email); // Pass email for sign-in
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Email authentication error:', error);
+      setIsLoading(false);
+      setNotification({
+        title: "Authentication Error",
+        message: error instanceof Error ? error.message : "Failed to authenticate. Please try again."
+      });
+    }
   };
 
   // --- Reset Password Flow Handlers ---

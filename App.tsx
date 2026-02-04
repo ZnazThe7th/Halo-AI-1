@@ -15,6 +15,7 @@ import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
 import HaloLogo from './components/HaloLogo';
 import RatingPage from './components/RatingPage';
 import { useAuth, getUserEmailFromToken } from './services/authContext';
+import { loadUserData, saveUserData, logout as apiLogout } from './services/apiService';
 import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -45,71 +46,120 @@ const App: React.FC = () => {
 
   // Track if we've loaded data to prevent overwriting with defaults
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Load user data from localStorage when authenticated
+  // Load user data from API when authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated && !dataLoaded) {
-      try {
-        // Try to get email from token first, then from business profile
-        const emailFromToken = getUserEmailFromToken(accessToken);
-        const email = emailFromToken || businessProfile.email;
-        
-        if (email && email !== DEFAULT_BUSINESS.email) {
-          // Update business profile email if we got it from token
-          if (emailFromToken && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
-            setBusinessProfile(prev => ({ ...prev, email: emailFromToken }));
-          }
+      const loadData = async () => {
+        try {
+          const result = await loadUserData();
           
-          const storageKey = getStorageKey(email);
-          const saved = localStorage.getItem(storageKey);
-          if (saved) {
-            const data = JSON.parse(saved);
-            if (data.businessProfile) {
-              setBusinessProfile(data.businessProfile);
+          if (result.error) {
+            console.warn('Failed to load data from API:', result.error);
+            // Fall back to localStorage if API fails
+            const emailFromToken = getUserEmailFromToken(accessToken);
+            const email = emailFromToken || businessProfile.email;
+            if (email && email !== DEFAULT_BUSINESS.email) {
+              const storageKey = getStorageKey(email);
+              const saved = localStorage.getItem(storageKey);
+              if (saved) {
+                const data = JSON.parse(saved);
+                if (data.businessProfile) setBusinessProfile(data.businessProfile);
+                if (data.clients) setClients(data.clients);
+                if (data.appointments) setAppointments(data.appointments);
+                if (data.expenses) setExpenses(data.expenses);
+                if (data.ratings) setRatings(data.ratings);
+              }
             }
-            if (data.clients) {
-              setClients(data.clients);
+          } else if (result.data) {
+            // Update business profile email if we got it from token
+            const emailFromToken = getUserEmailFromToken(accessToken);
+            if (emailFromToken && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
+              setBusinessProfile(prev => ({ ...prev, email: emailFromToken }));
             }
-            if (data.appointments) {
-              setAppointments(data.appointments);
+            
+            if (result.data.businessProfile) {
+              setBusinessProfile(result.data.businessProfile);
             }
-            if (data.expenses) {
-              setExpenses(data.expenses);
+            if (result.data.clients) {
+              setClients(result.data.clients);
             }
-            if (data.ratings) {
-              setRatings(data.ratings);
+            if (result.data.appointments) {
+              setAppointments(result.data.appointments);
+            }
+            if (result.data.expenses) {
+              setExpenses(result.data.expenses);
+            }
+            if (result.data.ratings) {
+              setRatings(result.data.ratings);
             }
           }
           setDataLoaded(true);
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          setDataLoaded(true); // Mark as loaded even on error to prevent retries
         }
-      } catch (error) {
-        console.error('Error loading user data from localStorage:', error);
-        setDataLoaded(true); // Mark as loaded even on error to prevent retries
-      }
+      };
+      
+      loadData();
     } else if (!isAuthenticated) {
       // Reset dataLoaded when user logs out
       setDataLoaded(false);
     }
-  }, [authLoading, isAuthenticated, accessToken, dataLoaded, businessProfile.email]);
+  }, [authLoading, isAuthenticated, accessToken, dataLoaded]);
 
-  // Save user data to localStorage whenever it changes (if authenticated)
+  // Save user data to API whenever it changes (if authenticated)
+  // Debounce saves to avoid too many API calls
   useEffect(() => {
-    if (isAuthenticated && businessProfile.email && businessProfile.email !== DEFAULT_BUSINESS.email) {
-      try {
-        const storageKey = getStorageKey(businessProfile.email);
-        const dataToSave = {
-          businessProfile,
-          clients,
-          appointments,
-          expenses,
-          ratings
-        };
-        localStorage.setItem(storageKey, JSON.stringify(dataToSave));
-      } catch (error) {
-        console.error('Error saving user data to localStorage:', error);
-      }
+    if (isAuthenticated && businessProfile.email && businessProfile.email !== DEFAULT_BUSINESS.email && dataLoaded) {
+      // Debounce saves - wait 1 second after last change
+      const timeoutId = setTimeout(async () => {
+        if (isSaving) return; // Don't save if already saving
+        
+        setIsSaving(true);
+        try {
+          const result = await saveUserData({
+            businessProfile,
+            clients,
+            appointments,
+            expenses,
+            ratings
+          });
+          
+          if (result.error) {
+            console.warn('Failed to save data to API:', result.error);
+            // Fall back to localStorage if API fails
+            const storageKey = getStorageKey(businessProfile.email);
+            const dataToSave = {
+              businessProfile,
+              clients,
+              appointments,
+              expenses,
+              ratings
+            };
+            localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+          }
+        } catch (error) {
+          console.error('Error saving user data:', error);
+          // Fall back to localStorage
+          const storageKey = getStorageKey(businessProfile.email);
+          const dataToSave = {
+            businessProfile,
+            clients,
+            appointments,
+            expenses,
+            ratings
+          };
+          localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+        } finally {
+          setIsSaving(false);
+        }
+      }, 1000); // Wait 1 second after last change
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [businessProfile, clients, appointments, expenses, ratings, isAuthenticated]);
+  }, [businessProfile, clients, appointments, expenses, ratings, isAuthenticated, dataLoaded, isSaving]);
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -140,37 +190,12 @@ const App: React.FC = () => {
   }, [businessProfile.themePreference]);
 
   // Handlers
-  const handleLogin = (email?: string) => {
+  const handleLogin = async (email?: string) => {
     // Auth state is already set by LoginView via auth context
     // Update business profile email if provided (for email/password sign-in)
     if (email && (!businessProfile.email || businessProfile.email === DEFAULT_BUSINESS.email)) {
       setBusinessProfile(prev => ({ ...prev, email: email }));
-      // Load data for this email
-      try {
-        const storageKey = getStorageKey(email);
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const data = JSON.parse(saved);
-          if (data.businessProfile) {
-            setBusinessProfile(data.businessProfile);
-          }
-          if (data.clients) {
-            setClients(data.clients);
-          }
-          if (data.appointments) {
-            setAppointments(data.appointments);
-          }
-          if (data.expenses) {
-            setExpenses(data.expenses);
-          }
-          if (data.ratings) {
-            setRatings(data.ratings);
-          }
-        }
-        setDataLoaded(true);
-      } catch (error) {
-        console.error('Error loading user data on login:', error);
-      }
+      // Data will be loaded by the useEffect that watches isAuthenticated
     }
     setShowOnboarding(false);
   };
@@ -195,9 +220,14 @@ const App: React.FC = () => {
       setShowOnboarding(true);
   };
 
-  const handleLogout = () => {
-    // Note: We don't clear business data from localStorage on logout
-    // This allows users to sign back in and see their data
+  const handleLogout = async () => {
+    // Logout from API
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.error('Error logging out from API:', error);
+    }
+    
     authLogout(); // Use auth context logout to clear persisted token
     // Reset to default state (data will be loaded when they sign back in)
     setBusinessProfile(DEFAULT_BUSINESS);
