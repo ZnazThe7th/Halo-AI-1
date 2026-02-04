@@ -38,12 +38,25 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
 
   // Financial Calculations
   const { grossRevenue, netEarnings, estimatedTax, totalExpenses, totalWriteOffs, goalProgress } = useMemo(() => {
+    // Helper function to calculate appointment price
+    const getAppointmentPrice = (appt: Appointment): number => {
+      const service = business.services.find(s => s.id === appt.serviceId);
+      if (!service) return 0;
+      
+      // If price per person, multiply by number of people
+      if (service.pricePerPerson) {
+        const numPeople = appt.numberOfPeople || (appt.clientIds?.length || appt.clientNames?.length || 1);
+        return service.price * numPeople;
+      }
+      
+      return service.price;
+    };
+
     // 1. Calculate Gross Revenue from COMPLETED appointments
     const completedAppointments = appointments.filter(a => a.status === AppointmentStatus.COMPLETED);
     
     const gross = completedAppointments.reduce((total, appt) => {
-      const service = business.services.find(s => s.id === appt.serviceId);
-      return total + (service ? service.price : 0);
+      return total + getAppointmentPrice(appt);
     }, 0);
 
     // 2. Calculate Expenses
@@ -106,11 +119,30 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
       const headers = ['Type', 'Date', 'Description', 'Category/Service', 'Amount'];
       
       // 2. Prepare Rows
+      // Helper function to calculate appointment price (same as above)
+      const getAppointmentPrice = (appt: Appointment): number => {
+        const service = business.services.find(s => s.id === appt.serviceId);
+        if (!service) return 0;
+        
+        if (service.pricePerPerson) {
+          const numPeople = appt.numberOfPeople || (appt.clientIds?.length || appt.clientNames?.length || 1);
+          return service.price * numPeople;
+        }
+        
+        return service.price;
+      };
+
       const incomeRows = appointments
         .filter(a => a.status === AppointmentStatus.COMPLETED)
         .map(a => {
             const service = business.services.find(s => s.id === a.serviceId);
-            return ['Income', a.date, `Client: ${a.clientName}`, service?.name || 'Service', service?.price || 0];
+            // Calculate price using the same logic
+            let price = service?.price || 0;
+            if (service?.pricePerPerson) {
+              const numPeople = a.numberOfPeople || (a.clientIds?.length || a.clientNames?.length || 1);
+              price = service.price * numPeople;
+            }
+            return ['Income', a.date, `Client: ${a.clientName}`, service?.name || 'Service', price];
         });
 
       const expenseRows = expenses.map(e => {

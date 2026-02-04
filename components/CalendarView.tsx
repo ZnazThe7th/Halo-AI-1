@@ -222,16 +222,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       // For MVP simplicity, we assume new bookings are created on the clicked Date string in Base time.
       
       const defaultService = business.services[0];
+      if (!defaultService) {
+          alert('Please add a service first in Settings before creating appointments.');
+          return;
+      }
+      
       const newAppt: Appointment = {
           id: Math.random().toString(36).substring(2, 9),
           clientId: '',
           clientName: '',
-          serviceId: defaultService?.id || '',
+          clientIds: [],
+          clientNames: [],
+          serviceId: defaultService.id,
           date: dateStr,
           time: timeStr,
           status: AppointmentStatus.CONFIRMED,
           recurrence: undefined,
-          numberOfPeople: defaultService?.pricePerPerson ? 1 : undefined
+          numberOfPeople: defaultService.pricePerPerson ? 1 : undefined
       };
       
       setSelectedAppointment({ ...newAppt, displayTime: formatTime(timeStr) });
@@ -251,16 +258,92 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   };
 
   const handleSave = () => {
+      // Validate required fields
+      if (entryType === 'APPOINTMENT' && !editForm.serviceId) {
+          alert('Please select a service');
+          return;
+      }
+      
+      if (entryType === 'APPOINTMENT' && !editForm.clientName && !editForm.clientNames?.length) {
+          alert('Please enter a client name');
+          return;
+      }
+
+      if (!editForm.date || !editForm.time) {
+          alert('Please enter date and time');
+          return;
+      }
+
       let updatedAppt = { ...selectedAppointment, ...editForm } as Appointment;
       
       if (entryType === 'BLOCK') {
           updatedAppt.status = AppointmentStatus.BLOCKED;
           updatedAppt.serviceId = 'BLOCK';
           updatedAppt.clientId = 'BLOCK';
+          updatedAppt.clientName = editForm.clientName || 'Blocked Time';
+          updatedAppt.clientIds = ['BLOCK'];
+          updatedAppt.clientNames = [editForm.clientName || 'Blocked Time'];
       } else {
+          // Ensure appointment has proper structure
           if (updatedAppt.status === AppointmentStatus.BLOCKED) {
               updatedAppt.status = AppointmentStatus.CONFIRMED;
           }
+          
+          // Handle client information
+          if (editForm.clientNames && editForm.clientNames.length > 0) {
+              // Multiple clients
+              updatedAppt.clientNames = editForm.clientNames.filter((name: string) => name.trim() !== '');
+              updatedAppt.clientName = updatedAppt.clientNames[0] || '';
+              // Generate temporary client IDs if not provided
+              if (!editForm.clientIds || editForm.clientIds.length !== updatedAppt.clientNames.length) {
+                  updatedAppt.clientIds = updatedAppt.clientNames.map((_, i) => `temp_${Date.now()}_${i}`);
+              } else {
+                  updatedAppt.clientIds = editForm.clientIds;
+              }
+              updatedAppt.clientId = updatedAppt.clientIds[0] || '';
+          } else if (editForm.clientName) {
+              // Single client
+              updatedAppt.clientName = editForm.clientName;
+              updatedAppt.clientId = editForm.clientId || `temp_${Date.now()}`;
+              updatedAppt.clientIds = [updatedAppt.clientId];
+              updatedAppt.clientNames = [updatedAppt.clientName];
+          }
+          
+          // Ensure service is valid
+          if (!updatedAppt.serviceId || updatedAppt.serviceId === 'BLOCK') {
+              const defaultService = business.services[0];
+              if (defaultService) {
+                  updatedAppt.serviceId = defaultService.id;
+              } else {
+                  alert('No services available. Please add a service first.');
+                  return;
+              }
+          }
+          
+          // Handle numberOfPeople for price-per-person services
+          const service = business.services.find(s => s.id === updatedAppt.serviceId);
+          if (service?.pricePerPerson) {
+              if (editForm.numberOfPeople) {
+                  updatedAppt.numberOfPeople = editForm.numberOfPeople;
+                  // Ensure clientNames array matches numberOfPeople
+                  if (updatedAppt.clientNames.length < editForm.numberOfPeople) {
+                      // Pad with placeholder names if needed
+                      while (updatedAppt.clientNames.length < editForm.numberOfPeople) {
+                          updatedAppt.clientNames.push(`Client ${updatedAppt.clientNames.length + 1}`);
+                      }
+                  }
+              } else {
+                  updatedAppt.numberOfPeople = updatedAppt.clientNames?.length || 1;
+              }
+          } else {
+              // Not price per person, ensure single client
+              updatedAppt.numberOfPeople = undefined;
+          }
+      }
+
+      // Ensure all required fields are present
+      if (!updatedAppt.id) {
+          updatedAppt.id = Math.random().toString(36).substring(2, 9);
       }
 
       if (isNew) {

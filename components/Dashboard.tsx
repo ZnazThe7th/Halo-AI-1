@@ -29,19 +29,31 @@ const Dashboard: React.FC<DashboardProps> = ({
     const todayAppointments = appointments.filter(a => a.date === today).sort((a,b) => a.time.localeCompare(b.time));
     const upcomingAppointments = appointments.filter(a => a.date > today).sort((a,b) => a.date.localeCompare(b.date));
     
+    // Helper function to calculate appointment price
+    const getAppointmentPrice = (appt: Appointment): number => {
+        const service = business.services.find(serv => serv.id === appt.serviceId);
+        if (!service) return 0;
+        
+        // If price per person, multiply by number of people
+        if (service.pricePerPerson) {
+            const numPeople = appt.numberOfPeople || (appt.clientIds?.length || appt.clientNames?.length || 1);
+            return service.price * numPeople;
+        }
+        
+        return service.price;
+    };
+
     // Revenue Estimate (Completed appointments only)
     const completedAppts = appointments.filter(a => a.status === AppointmentStatus.COMPLETED);
     const revenueEst = completedAppts.reduce((sum, appt) => {
-        const s = business.services.find(serv => serv.id === appt.serviceId);
-        return sum + (s ? s.price : 0);
+        return sum + getAppointmentPrice(appt);
     }, 0);
 
     // Today's Revenue
     const todayRevenue = todayAppointments
         .filter(a => a.status === AppointmentStatus.COMPLETED)
         .reduce((sum, appt) => {
-            const s = business.services.find(serv => serv.id === appt.serviceId);
-            return sum + (s ? s.price : 0);
+            return sum + getAppointmentPrice(appt);
         }, 0);
 
     // Calculate Average Ratings
