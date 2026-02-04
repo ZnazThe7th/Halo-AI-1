@@ -28,6 +28,20 @@ const Dashboard: React.FC<DashboardProps> = ({
     const today = new Date().toISOString().split('T')[0];
     const todayAppointments = appointments.filter(a => a.date === today).sort((a,b) => a.time.localeCompare(b.time));
     const upcomingAppointments = appointments.filter(a => a.date > today).sort((a,b) => a.date.localeCompare(b.date));
+    const pastAppointments = useMemo(() => {
+        // "Past" = completed OR any appointment before today (excluding blocked)
+        return appointments
+            .filter(a =>
+                a.status !== AppointmentStatus.BLOCKED &&
+                (a.status === AppointmentStatus.COMPLETED || a.date < today)
+            )
+            .sort((a, b) => {
+                // newest first
+                const dateCmp = b.date.localeCompare(a.date);
+                if (dateCmp !== 0) return dateCmp;
+                return b.time.localeCompare(a.time);
+            });
+    }, [appointments, today]);
     
     // Helper function to calculate appointment price
     const getAppointmentPrice = (appt: Appointment): number => {
@@ -182,6 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     // Menu & Edit State
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
+    const [scheduleTab, setScheduleTab] = useState<'today' | 'past'>('today');
 
     const handleComplete = (e: React.MouseEvent, appt: Appointment) => {
         e.stopPropagation();
@@ -279,7 +294,33 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="lg:col-span-2 space-y-4 lg:space-y-8">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm transition-colors">
                         <div className="p-4 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                            <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-wider transition-colors">Today's Schedule</h2>
+                            <div className="flex flex-col gap-3">
+                                <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-wider transition-colors">
+                                    {scheduleTab === 'today' ? "Today's Schedule" : 'Past Appointments'}
+                                </h2>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setScheduleTab('today')}
+                                        className={`px-3 py-2 text-[10px] font-bold uppercase tracking-widest border transition-colors ${
+                                            scheduleTab === 'today'
+                                                ? 'bg-zinc-900 dark:bg-white text-white dark:text-black border-zinc-900 dark:border-white'
+                                                : 'bg-transparent text-zinc-500 border-zinc-200 dark:border-zinc-800 hover:border-zinc-900 dark:hover:border-white hover:text-zinc-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        Today
+                                    </button>
+                                    <button
+                                        onClick={() => setScheduleTab('past')}
+                                        className={`px-3 py-2 text-[10px] font-bold uppercase tracking-widest border transition-colors ${
+                                            scheduleTab === 'past'
+                                                ? 'bg-zinc-900 dark:bg-white text-white dark:text-black border-zinc-900 dark:border-white'
+                                                : 'bg-transparent text-zinc-500 border-zinc-200 dark:border-zinc-800 hover:border-zinc-900 dark:hover:border-white hover:text-zinc-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        Past Appointments
+                                    </button>
+                                </div>
+                            </div>
                             <button 
                                 onClick={onNavigateToCalendar}
                                 className="text-xs font-bold text-orange-600 uppercase tracking-widest hover:text-zinc-900 dark:hover:text-white transition-colors"
@@ -288,7 +329,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </button>
                         </div>
                         <div className="divide-y divide-zinc-200 dark:divide-zinc-800 min-h-[300px]">
-                            {todayAppointments.length > 0 ? todayAppointments.map(appt => {
+                            {(scheduleTab === 'today' ? todayAppointments : pastAppointments).length > 0 ? (scheduleTab === 'today' ? todayAppointments : pastAppointments).map(appt => {
                                 const service = business.services.find(s => s.id === appt.serviceId);
                                 const [timeStr, ampm] = formatTime(appt.time).split(' ');
                                 const isBlocked = appt.status === AppointmentStatus.BLOCKED;
@@ -303,7 +344,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                         <div className="flex justify-between items-center mb-1">
                                             <h3 className={`font-bold text-lg transition-colors ${isBlocked ? 'text-zinc-500 italic flex items-center gap-2' : 'text-zinc-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-500'}`}>
                                                 {isBlocked && <Ban className="w-4 h-4"/>}
-                                                {appt.clientName}
+                                                {appt.clientName || 'No client name'}
                                             </h3>
                                             <span className={`text-[10px] px-2 py-1 uppercase tracking-wider font-bold rounded-sm ${
                                                 appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-100 dark:bg-zinc-800 text-green-600 dark:text-green-500 border border-zinc-200 dark:border-green-900' : 
@@ -315,6 +356,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                         <p className="text-sm text-zinc-500 uppercase tracking-wide">
                                             {isBlocked ? 'Blocked Period' : `${service?.name || 'Unknown Service'} • ${service?.durationMin} min`}
                                         </p>
+                                        {scheduleTab === 'past' && (
+                                            <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">
+                                                {appt.date}
+                                            </p>
+                                        )}
                                     </div>
                                     
                                     {appt.status !== AppointmentStatus.COMPLETED && !isBlocked && (
@@ -360,7 +406,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                             )}) : (
                                 <div className="p-10 text-center text-zinc-500 uppercase tracking-widest text-sm flex flex-col items-center justify-center h-full">
-                                    <p>No appointments scheduled for today.</p>
+                                    <p>{scheduleTab === 'today' ? 'No appointments scheduled for today.' : 'No past appointments yet.'}</p>
                                 </div>
                             )}
                         </div>
