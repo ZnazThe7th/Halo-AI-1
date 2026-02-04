@@ -146,37 +146,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
         candidates.forEach(baseDateStr => {
              if (isOccurrence(appt, baseDateStr)) {
-                 const utcIsoString = `${baseDateStr}T${appt.time}:00Z`;
-                 const utcDate = new Date(utcIsoString);
-
-                 if (isNaN(utcDate.getTime())) return;
-
-                 // Format to Selected Timezone
-                 const format = new Intl.DateTimeFormat('en-CA', { // en-CA gives YYYY-MM-DD
-                    timeZone: selectedTimeZone,
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false // Keep 24h for sorting logic
-                 });
-
-                 const parts = format.formatToParts(utcDate);
-                 const getPart = (type: string) => parts.find(p => p.type === type)?.value;
-                 const zDate = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
-                 const zTime24 = `${getPart('hour')}:${getPart('minute')}`;
-
-                 if (zDate === targetDateStr) {
+                 // Treat stored time as local time in the selected timezone (not UTC)
+                 // This means we display the time as-is without conversion
+                 // The time stored should match what the user entered
+                 
+                 // Check if the appointment date matches the target date
+                 if (baseDateStr === targetDateStr) {
                      if (!seenIds.has(appt.id)) {
                          // Find duration
                          const service = business.services.find(s => s.id === appt.serviceId);
                          const duration = service ? service.durationMin : 60; // Default 60 for blocked
 
+                         // Display time directly (treating it as local time in selected timezone)
+                         // No timezone conversion needed - time is stored as entered
                          dayAppointments.push({ 
                              ...appt, 
-                             displayTime: formatTime(zTime24), 
-                             _sortTime: zTime24,
+                             displayTime: formatTime(appt.time), 
+                             _sortTime: appt.time,
                              _duration: duration
                          });
                          seenIds.add(appt.id);
@@ -359,8 +345,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
   const handleComplete = () => {
       if (selectedAppointment) {
-          onUpdateAppointment({ ...selectedAppointment, status: AppointmentStatus.COMPLETED });
-          setSelectedAppointment({ ...selectedAppointment, status: AppointmentStatus.COMPLETED });
+          const completedAppt = { ...selectedAppointment, status: AppointmentStatus.COMPLETED };
+          onUpdateAppointment(completedAppt);
+          // Update local state to reflect the change immediately
+          setSelectedAppointment(completedAppt);
       }
   };
 
@@ -513,7 +501,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                             <span className="mr-1 opacity-75">{appt.displayTime}</span>
                                             {appt.clientNames && appt.clientNames.length > 1 
                                               ? `${appt.clientNames.length} clients` 
-                                              : appt.clientName}
+                                              : (appt.clientName || 'No client name')}
                                         </div>
                                     );
                                 })}
@@ -607,7 +595,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                <div className="truncate">
                                                  {appt.clientNames && appt.clientNames.length > 1 
                                                    ? `${appt.clientNames.length} clients` 
-                                                   : appt.clientName}
+                                                   : (appt.clientName || 'No client name')}
                                                </div>
                                            </div>
                                        );
@@ -690,7 +678,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                             <CalendarIcon className="w-3 h-3" /> Date
                                         </p>
                                         <p className="text-white font-mono">
-                                            {selectedAppointment.date} <span className="text-zinc-500 text-[10px]">(UTC)</span>
+                                            {selectedAppointment.date}
                                         </p>
                                     </div>
                                     <div className="p-4 bg-zinc-900 border border-zinc-800">
@@ -861,7 +849,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
                               <div className="grid grid-cols-2 gap-4">
                                   <div>
-                                      <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Date (UTC)</label>
+                                      <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Date</label>
                                       <input 
                                         type="date" 
                                         value={editForm.date}
@@ -870,7 +858,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                       />
                                   </div>
                                   <div>
-                                      <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Time (UTC 24h)</label>
+                                      <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Time (24h format)</label>
                                       <input 
                                         type="time" 
                                         value={editForm.time}
@@ -879,7 +867,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                       />
                                   </div>
                               </div>
-                              <p className="text-[10px] text-zinc-500 -mt-2">Editing in Base Time (UTC) to maintain consistency. Input requires 24h format.</p>
+                              <p className="text-[10px] text-zinc-500 -mt-2">Time is stored as entered and displayed in your selected timezone ({selectedTimeZone.split('/')[selectedTimeZone.split('/').length - 1] || selectedTimeZone}).</p>
 
                               {/* Recurrence Editor */}
                               <div className="border border-zinc-800 bg-zinc-900/50 p-4">
