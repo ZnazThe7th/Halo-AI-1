@@ -203,49 +203,55 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const handleComplete = (e: React.MouseEvent, appt: Appointment) => {
         e.stopPropagation();
-        // Close menu immediately (non-blocking UI update)
+        // Close menu immediately
         setActiveMenuId(null);
-        // Use requestAnimationFrame to defer update to next frame (non-blocking)
+        // Use double requestAnimationFrame to ensure browser paints before heavy work
         requestAnimationFrame(() => {
-            onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
+            requestAnimationFrame(() => {
+                onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
+            });
         });
     };
 
     const handleCancel = (e: React.MouseEvent, appt: Appointment) => {
         e.stopPropagation();
-        // Close menu immediately (non-blocking UI update)
+        // Close menu immediately
         setActiveMenuId(null);
-        // Use requestAnimationFrame to defer modal opening to next frame (non-blocking)
+        // Use double requestAnimationFrame to ensure browser paints before showing modal
         requestAnimationFrame(() => {
-            setConfirmModal({
-                show: true,
-                message: "Are you sure you want to cancel this appointment?",
-                onConfirm: () => {
-                    setConfirmModal(null);
-                    // Use requestAnimationFrame to defer update (non-blocking)
-                    requestAnimationFrame(() => {
-                        onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
-                    });
-                }
+            requestAnimationFrame(() => {
+                setConfirmModal({
+                    show: true,
+                    message: "Are you sure you want to cancel this appointment?",
+                    onConfirm: () => {
+                        setConfirmModal(null);
+                        // Defer the actual update
+                        requestAnimationFrame(() => {
+                            onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
+                        });
+                    }
+                });
             });
         });
     };
 
     const handleDelete = (id: string) => {
-        // Close menu immediately (non-blocking UI update)
+        // Close menu immediately
         setActiveMenuId(null);
-        // Use requestAnimationFrame to defer modal opening to next frame (non-blocking)
+        // Use double requestAnimationFrame to ensure browser paints before showing modal
         requestAnimationFrame(() => {
-            setConfirmModal({
-                show: true,
-                message: "Are you sure you want to remove this appointment?",
-                onConfirm: () => {
-                    setConfirmModal(null);
-                    // Use requestAnimationFrame to defer update (non-blocking)
-                    requestAnimationFrame(() => {
-                        onRemoveAppointment(id);
-                    });
-                }
+            requestAnimationFrame(() => {
+                setConfirmModal({
+                    show: true,
+                    message: "Are you sure you want to remove this appointment?",
+                    onConfirm: () => {
+                        setConfirmModal(null);
+                        // Defer the actual update
+                        requestAnimationFrame(() => {
+                            onRemoveAppointment(id);
+                        });
+                    }
+                });
             });
         });
     };
