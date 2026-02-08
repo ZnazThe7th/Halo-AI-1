@@ -227,6 +227,83 @@ app.get('/me', async (req, res) => {
   }
 });
 
+// ================================================================
+// DEVICE FINGERPRINT HELPER
+// ================================================================
+function parseDeviceFromUA(userAgent: string): { deviceType: string; deviceName: string } {
+  const ua = userAgent.toLowerCase();
+  
+  let deviceType = 'desktop';
+  if (/mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)) {
+    deviceType = /ipad|tablet/i.test(ua) ? 'tablet' : 'mobile';
+  }
+
+  let deviceName = 'Unknown Device';
+  // Browser detection
+  let browser = 'Browser';
+  if (ua.includes('edg/') || ua.includes('edge/')) browser = 'Edge';
+  else if (ua.includes('chrome') && !ua.includes('chromium')) browser = 'Chrome';
+  else if (ua.includes('firefox')) browser = 'Firefox';
+  else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
+  else if (ua.includes('opera') || ua.includes('opr/')) browser = 'Opera';
+
+  // OS detection
+  let os = '';
+  if (ua.includes('windows')) os = 'Windows';
+  else if (ua.includes('mac os')) os = 'macOS';
+  else if (ua.includes('linux') && !ua.includes('android')) os = 'Linux';
+  else if (ua.includes('android')) os = 'Android';
+  else if (ua.includes('iphone')) os = 'iPhone';
+  else if (ua.includes('ipad')) os = 'iPad';
+
+  deviceName = os ? `${browser} ${os}` : browser;
+  return { deviceType, deviceName };
+}
+
+async function upsertDevice(email: string, fingerprint: string, userAgent: string): Promise<{ id: string; deviceType: string; deviceName: string } | null> {
+  const { deviceType, deviceName } = parseDeviceFromUA(userAgent);
+  
+  // Try to find existing device
+  const { data: existing } = await supabase
+    .from('devices')
+    .select('id, device_type, device_name')
+    .eq('user_email', email)
+    .eq('device_fingerprint', fingerprint)
+    .single();
+
+  if (existing) {
+    // Update last_seen and device info
+    await supabase
+      .from('devices')
+      .update({ last_seen_at: new Date().toISOString(), device_type: deviceType, device_name: deviceName })
+      .eq('id', existing.id);
+    return { id: existing.id, deviceType, deviceName };
+  }
+
+  // Insert new device
+  const { data: newDevice, error } = await supabase
+    .from('devices')
+    .insert({
+      user_email: email,
+      device_fingerprint: fingerprint,
+      device_type: deviceType,
+      device_name: deviceName
+    })
+    .select('id')
+    .single();
+
+  if (error || !newDevice) {
+    console.error('Device upsert error:', error);
+    return null;
+  }
+
+  return { id: newDevice.id, deviceType, deviceName };
+}
+
+// ================================================================
+// DATA SAVE/LOAD ROUTES
+// ================================================================
+
 // POST /save - Save user data to database
 app.post('/save', async (req, res) => {
   try {
@@ -236,7 +313,7 @@ app.post('/save', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { businessProfile, clients, appointments, expenses, ratings } = req.body;
+    const { businessProfile, clients, appointments, expenses, ratings, bonusEntries } = req.body;
 
     // Save to Supabase
     const { error } = await supabase
@@ -248,6 +325,7 @@ app.post('/save', async (req, res) => {
         appointments: appointments || [],
         expenses: expenses || [],
         ratings: ratings || [],
+        bonus_entries: bonusEntries || [],
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'email'
@@ -292,7 +370,8 @@ app.get('/load', async (req, res) => {
         clients: [],
         appointments: [],
         expenses: [],
-        ratings: []
+        ratings: [],
+        bonusEntries: []
       });
     }
 
@@ -301,11 +380,144 @@ app.get('/load', async (req, res) => {
       clients: data.clients || [],
       appointments: data.appointments || [],
       expenses: data.expenses || [],
-      ratings: data.ratings || []
+      ratings: data.ratings || [],
+      bonusEntries: data.bonus_entries || []
     });
   } catch (error) {
     console.error('Load error:', error);
     res.status(500).json({ error: 'Failed to load data' });
+  }
+});
+
+// ================================================================
+// SAVEPOINTS ROUTES
+// ================================================================
+
+// POST /savepoints - Create a new save point
+app.post('/savepoints', async (req, res) => {
+  try {
+    const email = verifySession(req);
+    if (!email) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { label, snapshot, snapshotVersion } = req.body;
+    if (!snapshot) return res.status(400).json({ error: 'Snapshot data required' });
+
+    const fingerprint = req.headers['x-device-fingerprint'] as string || '';
+    const userAgent = req.headers['user-agent'] || '';
+    
+    let deviceId: string | null = null;
+    let deviceType = 'desktop';
+    let deviceName = 'Unknown Device';
+
+    if (fingerprint) {
+      const device = await upsertDevice(email, fingerprint, userAgent);
+      if (device) {
+        deviceId = device.id;
+        deviceType = device.deviceType;
+        deviceName = device.deviceName;
+      }
+    } else {
+      const parsed = parseDeviceFromUA(userAgent);
+      deviceType = parsed.deviceType;
+      deviceName = parsed.deviceName;
+    }
+
+    const { data, error } = await supabase
+      .from('savepoints')
+      .insert({
+        user_email: email,
+        device_id: deviceId,
+        label: label || `Save Point - ${new Date().toLocaleString()}`,
+        snapshot_json: snapshot,
+        snapshot_version: snapshotVersion || 1,
+        device_type: deviceType,
+        device_name: deviceName
+      })
+      .select('id, label, snapshot_version, device_type, device_name, created_at')
+      .single();
+
+    if (error) {
+      console.error('Create savepoint error:', error);
+      return res.status(500).json({ error: 'Failed to create save point' });
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Create savepoint error:', error);
+    res.status(500).json({ error: 'Failed to create save point' });
+  }
+});
+
+// GET /savepoints - List all save points for current user (most recent first)
+app.get('/savepoints', async (req, res) => {
+  try {
+    const email = verifySession(req);
+    if (!email) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { data, error } = await supabase
+      .from('savepoints')
+      .select('id, label, snapshot_version, device_type, device_name, created_at')
+      .eq('user_email', email)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('List savepoints error:', error);
+      return res.status(500).json({ error: 'Failed to list save points' });
+    }
+
+    res.json(data || []);
+  } catch (error) {
+    console.error('List savepoints error:', error);
+    res.status(500).json({ error: 'Failed to list save points' });
+  }
+});
+
+// GET /savepoints/:id - Fetch one save point (with full snapshot)
+app.get('/savepoints/:id', async (req, res) => {
+  try {
+    const email = verifySession(req);
+    if (!email) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { data, error } = await supabase
+      .from('savepoints')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_email', email) // Security: only own savepoints
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Save point not found' });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Get savepoint error:', error);
+    res.status(500).json({ error: 'Failed to get save point' });
+  }
+});
+
+// DELETE /savepoints/:id - Delete a save point
+app.delete('/savepoints/:id', async (req, res) => {
+  try {
+    const email = verifySession(req);
+    if (!email) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { error } = await supabase
+      .from('savepoints')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_email', email); // Security: only own savepoints
+
+    if (error) {
+      console.error('Delete savepoint error:', error);
+      return res.status(500).json({ error: 'Failed to delete save point' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete savepoint error:', error);
+    res.status(500).json({ error: 'Failed to delete save point' });
   }
 });
 

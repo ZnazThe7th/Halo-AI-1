@@ -145,6 +145,7 @@ export async function saveUserData(data: {
   appointments: any[];
   expenses: any[];
   ratings: any[];
+  bonusEntries?: any[];
 }): Promise<ApiResponse<{ success: boolean }>> {
   try {
     const response = await fetch(`${API_URL}/save`, {
@@ -187,6 +188,7 @@ export async function loadUserData(): Promise<ApiResponse<{
   appointments: any[];
   expenses: any[];
   ratings: any[];
+  bonusEntries: any[];
 }>> {
   try {
     const response = await fetch(`${API_URL}/load`, {
@@ -212,7 +214,8 @@ export async function loadUserData(): Promise<ApiResponse<{
         clients: data.clients || [],
         appointments: data.appointments || [],
         expenses: data.expenses || [],
-        ratings: data.ratings || []
+        ratings: data.ratings || [],
+        bonusEntries: data.bonusEntries || []
       }
     };
   } catch (error: any) {
@@ -246,6 +249,145 @@ export async function logout(): Promise<ApiResponse<{ success: boolean }>> {
   } catch (error) {
     console.error('Logout API error:', error);
     return { error: 'Failed to logout from server' };
+  }
+}
+
+// ================================================================
+// SAVEPOINT API
+// ================================================================
+
+import { getDeviceFingerprint } from './deviceFingerprint';
+
+export interface SavePointMeta {
+  id: string;
+  label: string;
+  snapshot_version: number;
+  device_type: string;
+  device_name: string;
+  created_at: string;
+}
+
+export interface SavePointFull extends SavePointMeta {
+  user_email: string;
+  device_id: string | null;
+  snapshot_json: any;
+}
+
+/**
+ * Create a new save point
+ */
+export async function createSavePoint(label: string, snapshot: any, snapshotVersion: number): Promise<ApiResponse<SavePointMeta>> {
+  try {
+    const response = await fetch(`${API_URL}/savepoints`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Device-Fingerprint': getDeviceFingerprint(),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ label, snapshot, snapshotVersion }),
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) return { error: 'Not authenticated' };
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
+      return { error: error.error || 'Failed to create save point' };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      return { error: 'API_UNAVAILABLE' };
+    }
+    console.error('Create savepoint API error:', error);
+    return { error: 'Failed to create save point' };
+  }
+}
+
+/**
+ * List all save points (most recent first)
+ */
+export async function listSavePoints(): Promise<ApiResponse<SavePointMeta[]>> {
+  try {
+    const response = await fetch(`${API_URL}/savepoints`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) return { error: 'Not authenticated' };
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
+      return { error: error.error || 'Failed to list save points' };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      return { error: 'API_UNAVAILABLE' };
+    }
+    console.error('List savepoints API error:', error);
+    return { error: 'Failed to list save points' };
+  }
+}
+
+/**
+ * Fetch one save point (with full snapshot)
+ */
+export async function getSavePoint(id: string): Promise<ApiResponse<SavePointFull>> {
+  try {
+    const response = await fetch(`${API_URL}/savepoints/${id}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) return { error: 'Not authenticated' };
+      if (response.status === 404) return { error: 'Save point not found' };
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
+      return { error: error.error || 'Failed to get save point' };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      return { error: 'API_UNAVAILABLE' };
+    }
+    console.error('Get savepoint API error:', error);
+    return { error: 'Failed to get save point' };
+  }
+}
+
+/**
+ * Delete a save point
+ */
+export async function deleteSavePoint(id: string): Promise<ApiResponse<{ success: boolean }>> {
+  try {
+    const response = await fetch(`${API_URL}/savepoints/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) return { error: 'Not authenticated' };
+      const error = await response.json().catch(() => ({ error: 'Server error' }));
+      return { error: error.error || 'Failed to delete save point' };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      return { error: 'API_UNAVAILABLE' };
+    }
+    console.error('Delete savepoint API error:', error);
+    return { error: 'Failed to delete save point' };
   }
 }
 

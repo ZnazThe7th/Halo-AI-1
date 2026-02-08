@@ -6,6 +6,7 @@ export enum ViewState {
   CALENDAR = 'CALENDAR',
   SETTINGS = 'SETTINGS',
   MY_BUSINESS = 'MY_BUSINESS',
+  SAVE_POINTS = 'SAVE_POINTS', // Manual save/load snapshots across devices
   BOOKING_PUBLIC = 'BOOKING_PUBLIC', // The client-facing view
   RATING_PAGE = 'RATING_PAGE' // Public rating page
 }

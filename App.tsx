@@ -9,14 +9,16 @@ import CalendarView from './components/CalendarView';
 import SettingsView from './components/SettingsView';
 import ClientList from './components/ClientList';
 import MyBusinessView from './components/MyBusinessView';
+import SavePointsView from './components/SavePointsView';
 import LoginView from './components/LoginView';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
 import HaloLogo from './components/HaloLogo';
 import RatingPage from './components/RatingPage';
 import { useAuth, getUserEmailFromToken } from './services/authContext';
+import { AppSnapshot } from './services/snapshotMigration';
 import { loadUserData, saveUserData, logout as apiLogout } from './services/apiService';
-import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon, HardDrive } from 'lucide-react';
 
 const App: React.FC = () => {
   // Use auth context instead of local state to prevent auth loops
@@ -456,6 +458,17 @@ const App: React.FC = () => {
     setBonusEntries(prev => prev.filter(b => b.id !== id));
   };
 
+  // Restore from a Save Point snapshot — replaces entire local state
+  const handleRestoreSnapshot = (snapshot: AppSnapshot) => {
+    if (snapshot.businessProfile) setBusinessProfile(snapshot.businessProfile);
+    setClients(snapshot.clients || []);
+    setAppointments(snapshot.appointments || []);
+    setExpenses(snapshot.expenses || []);
+    setRatings(snapshot.ratings || []);
+    setBonusEntries(snapshot.bonusEntries || []);
+    // State will auto-save to backend via the debounced useEffect
+  };
+
   const handleResetEarnings = async () => {
     if (!confirm('Are you sure you want to reset all earnings? This will remove all completed appointments and expenses. A summary email will be sent to your email address.')) {
       return;
@@ -688,6 +701,18 @@ const App: React.FC = () => {
           isAuthenticated={isAuthenticated}
         />;
 
+      case ViewState.SAVE_POINTS:
+        return <SavePointsView
+            businessProfile={businessProfile}
+            clients={clients}
+            appointments={appointments}
+            expenses={expenses}
+            ratings={ratings}
+            bonusEntries={bonusEntries}
+            onRestore={handleRestoreSnapshot}
+            isAuthenticated={isAuthenticated}
+        />;
+
       case ViewState.MY_BUSINESS:
         return <MyBusinessView 
             business={businessProfile} 
@@ -829,6 +854,17 @@ const App: React.FC = () => {
           >
             <Briefcase className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium uppercase tracking-wide text-sm">My Business</span>
+          </button>
+
+          <button 
+            onClick={() => {
+              setCurrentView(ViewState.SAVE_POINTS);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.SAVE_POINTS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+          >
+            <HardDrive className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium uppercase tracking-wide text-sm">Save Points</span>
           </button>
 
           <button 
