@@ -11,16 +11,18 @@ interface DashboardProps {
   ratings: ClientRating[];
   onViewAllAppointments: () => void;
   onUpdateAppointment: (appt: Appointment) => void;
+  onAddAppointment: (appt: Appointment) => void;
   onRemoveAppointment: (id: string) => void;
   onNavigateToCalendar: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   business, 
-  appointments, 
+  appointments,
   ratings,
   onViewAllAppointments, 
   onUpdateAppointment,
+  onAddAppointment,
   onRemoveAppointment,
   onNavigateToCalendar
 }) => {
@@ -208,7 +210,18 @@ const Dashboard: React.FC<DashboardProps> = ({
         // Use double requestAnimationFrame to ensure browser paints before heavy work
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
+                // If recurring, create a completed instance for this date only
+                if (appt.recurrence) {
+                    const completedInstance: Appointment = {
+                        ...appt,
+                        id: Math.random().toString(36).substring(2, 9) + '_completed',
+                        status: AppointmentStatus.COMPLETED,
+                        recurrence: undefined,
+                    };
+                    onAddAppointment(completedInstance);
+                } else {
+                    onUpdateAppointment({ ...appt, status: AppointmentStatus.COMPLETED });
+                }
             });
         });
     };
@@ -227,7 +240,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                         setConfirmModal(null);
                         // Defer the actual update
                         requestAnimationFrame(() => {
-                            onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
+                            // If recurring, create a cancelled instance for this date only
+                            if (appt.recurrence) {
+                                const cancelledInstance: Appointment = {
+                                    ...appt,
+                                    id: Math.random().toString(36).substring(2, 9) + '_cancelled',
+                                    status: AppointmentStatus.CANCELLED,
+                                    recurrence: undefined,
+                                };
+                                onAddAppointment(cancelledInstance);
+                            } else {
+                                onUpdateAppointment({ ...appt, status: AppointmentStatus.CANCELLED });
+                            }
                         });
                     }
                 });

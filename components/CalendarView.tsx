@@ -165,26 +165,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
     const dayAppointments: (Appointment & { displayTime: string; _sortTime: string; _duration: number })[] = [];
     const seenIds = new Set<string>();
 
+    // Collect IDs of non-recurring appointments on this date (completed/cancelled instances)
+    // These override the recurring parent for this specific date
+    const overriddenDates = new Map<string, Set<string>>(); // parentTime -> Set of dates with overrides
+    appointments.forEach(appt => {
+        // An appointment that was created from a recurring parent has an id ending with _completed or _cancelled
+        // and has no recurrence rule but shares the same time/service
+        if (!appt.recurrence && (appt.id.endsWith('_completed') || appt.id.endsWith('_cancelled'))) {
+            const key = `${appt.time}_${appt.serviceId}_${appt.clientName}`;
+            if (!overriddenDates.has(key)) overriddenDates.set(key, new Set());
+            overriddenDates.get(key)!.add(appt.date);
+        }
+    });
+
     appointments.forEach(appt => {
         if (statusFilter !== 'ALL' && appt.status !== statusFilter) return;
 
         candidates.forEach(baseDateStr => {
              if (isOccurrence(appt, baseDateStr)) {
-                 // Treat stored time as local time in the selected timezone (not UTC)
-                 // This means we display the time as-is without conversion
-                 // The time stored should match what the user entered
-                 
-                 // Check if the appointment date matches the target date
                  if (baseDateStr === targetDateStr) {
-                     if (!seenIds.has(appt.id)) {
-                         // Find duration
-                         const service = business.services.find(s => s.id === appt.serviceId);
-                         const duration = service ? service.durationMin : 60; // Default 60 for blocked
+                     // If this is a recurring appointment, check if there's already a completed/cancelled 
+                     // instance for this specific date (don't show recurring parent if so)
+                     if (appt.recurrence && appt.date !== targetDateStr) {
+                         const key = `${appt.time}_${appt.serviceId}_${appt.clientName}`;
+                         const overrides = overriddenDates.get(key);
+                         if (overrides && overrides.has(targetDateStr)) {
+                             return; // Skip: this recurring date has been overridden by a completed/cancelled instance
+                         }
+                     }
 
-                         // Display time directly (treating it as local time in selected timezone)
-                         // No timezone conversion needed - time is stored as entered
+                     if (!seenIds.has(appt.id)) {
+                         const service = business.services.find(s => s.id === appt.serviceId);
+                         const duration = service ? service.durationMin : 60;
+
+                         // For recurring appointments shown on a different date, 
+                         // set the date to the target date so completing works correctly
+                         const displayAppt = appt.recurrence && appt.date !== targetDateStr 
+                             ? { ...appt, date: targetDateStr }
+                             : appt;
+
                          dayAppointments.push({ 
-                             ...appt, 
+                             ...displayAppt, 
                              displayTime: formatTime(appt.time), 
                              _sortTime: appt.time,
                              _duration: duration
@@ -382,29 +403,65 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
   const handleComplete = () => {
       if (selectedAppointment) {
-          const completedAppt = { ...selectedAppointment, status: AppointmentStatus.COMPLETED };
-          onUpdateAppointment(completedAppt);
-          // Update local state to reflect the change immediately
-          // Keep displayTime if it exists
-          const updatedWithDisplayTime = { 
-              ...completedAppt, 
-              displayTime: selectedAppointment.displayTime || formatTime(completedAppt.time)
-          };
-          setSelectedAppointment(updatedWithDisplayTime);
+          // If this is a recurring appointment, create a new one-off instance for this date
+          // and keep the original recurring appointment unchanged
+          if (selectedAppointment.recurrence) {
+              const completedInstance: Appointment = {
+                  ...selectedAppointment,
+                  id: Math.random().toString(36).substring(2, 9) + '_completed',
+                  status: AppointmentStatus.COMPLETED,
+                  recurrence: undefined, // Remove recurrence - this is a single instance
+                  // Use the date being viewed, not the original recurring start date
+                  date: selectedAppointment.date
+              };
+              // Add the completed instance as a new appointment
+              onAddAppointment(completedInstance);
+              // Update local state
+              const updatedWithDisplayTime = { 
+                  ...completedInstance, 
+                  displayTime: selectedAppointment.displayTime || formatTime(completedInstance.time)
+              };
+              setSelectedAppointment(updatedWithDisplayTime);
+          } else {
+              const completedAppt = { ...selectedAppointment, status: AppointmentStatus.COMPLETED };
+              onUpdateAppointment(completedAppt);
+              // Update local state to reflect the change immediately
+              const updatedWithDisplayTime = { 
+                  ...completedAppt, 
+                  displayTime: selectedAppointment.displayTime || formatTime(completedAppt.time)
+              };
+              setSelectedAppointment(updatedWithDisplayTime);
+          }
       }
   };
 
   const handleCancel = () => {
       if (selectedAppointment) {
           if (confirm("Are you sure you want to cancel this appointment?")) {
-              const cancelledAppt = { ...selectedAppointment, status: AppointmentStatus.CANCELLED };
-              onUpdateAppointment(cancelledAppt);
-              // Update local state to reflect the change immediately
-              const updatedWithDisplayTime = { 
-                  ...cancelledAppt, 
-                  displayTime: selectedAppointment.displayTime || formatTime(cancelledAppt.time)
-              };
-              setSelectedAppointment(updatedWithDisplayTime);
+              // If recurring, create a cancelled instance for this date only
+              if (selectedAppointment.recurrence) {
+                  const cancelledInstance: Appointment = {
+                      ...selectedAppointment,
+                      id: Math.random().toString(36).substring(2, 9) + '_cancelled',
+                      status: AppointmentStatus.CANCELLED,
+                      recurrence: undefined,
+                      date: selectedAppointment.date
+                  };
+                  onAddAppointment(cancelledInstance);
+                  const updatedWithDisplayTime = { 
+                      ...cancelledInstance, 
+                      displayTime: selectedAppointment.displayTime || formatTime(cancelledInstance.time)
+                  };
+                  setSelectedAppointment(updatedWithDisplayTime);
+              } else {
+                  const cancelledAppt = { ...selectedAppointment, status: AppointmentStatus.CANCELLED };
+                  onUpdateAppointment(cancelledAppt);
+                  const updatedWithDisplayTime = { 
+                      ...cancelledAppt, 
+                      displayTime: selectedAppointment.displayTime || formatTime(cancelledAppt.time)
+                  };
+                  setSelectedAppointment(updatedWithDisplayTime);
+              }
           }
       }
   };

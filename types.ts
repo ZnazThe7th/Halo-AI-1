@@ -63,6 +63,13 @@ export interface Expense {
   category: 'Supplies' | 'Rent' | 'Marketing' | 'Other';
 }
 
+export interface BonusEntry {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+}
+
 export enum AppointmentStatus {
   CONFIRMED = 'CONFIRMED',
   PENDING = 'PENDING',
@@ -103,6 +110,7 @@ export interface Appointment {
   staffId?: string; // Which staff member is assigned
   rating?: ClientRating; // Rating for this appointment
   numberOfPeople?: number; // Number of people for price-per-person services
+  overridePrice?: number; // Manual price override for revenue editing
 }
 
 export interface AISummaryResponse {

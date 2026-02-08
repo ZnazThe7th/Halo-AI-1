@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating, AppointmentStatus } from './types';
+import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating, AppointmentStatus, BonusEntry } from './types';
 import { DEFAULT_BUSINESS } from './constants';
 import Dashboard from './components/Dashboard';
 import BookingForm from './components/BookingForm';
@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [ratings, setRatings] = useState<ClientRating[]>([]);
+  const [bonusEntries, setBonusEntries] = useState<BonusEntry[]>([]);
 
   // Helper function to get storage key based on user email
   const getStorageKey = (email: string | null): string => {
@@ -98,6 +99,7 @@ const App: React.FC = () => {
                   if (data.appointments) setAppointments(data.appointments);
                   if (data.expenses) setExpenses(data.expenses);
                   if (data.ratings) setRatings(data.ratings);
+                  if (data.bonusEntries) setBonusEntries(data.bonusEntries);
                   console.log('📦 Loaded data from localStorage (API unavailable):', {
                     appointments: data.appointments?.length || 0
                   });
@@ -125,6 +127,7 @@ const App: React.FC = () => {
             setAppointments(result.data.appointments || []);
             setExpenses(result.data.expenses || []);
             setRatings(result.data.ratings || []);
+            setBonusEntries(result.data.bonusEntries || []);
             
             console.log('✅ Loaded data from backend:', {
               appointments: result.data.appointments?.length || 0,
@@ -202,7 +205,8 @@ const App: React.FC = () => {
             clients,
             appointments,
             expenses,
-            ratings
+            ratings,
+            bonusEntries
           });
           
           if (result.error) {
@@ -219,7 +223,8 @@ const App: React.FC = () => {
               clients,
               appointments,
               expenses,
-              ratings
+              ratings,
+              bonusEntries
             };
             localStorage.setItem(storageKey, JSON.stringify(dataToSave));
           } else {
@@ -238,7 +243,8 @@ const App: React.FC = () => {
             clients,
             appointments,
             expenses,
-            ratings
+            ratings,
+            bonusEntries
           };
           localStorage.setItem(storageKey, JSON.stringify(dataToSave));
         } finally {
@@ -248,7 +254,7 @@ const App: React.FC = () => {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [businessProfile, clients, appointments, expenses, ratings, isAuthenticated, dataLoaded, isSaving]);
+  }, [businessProfile, clients, appointments, expenses, ratings, bonusEntries, isAuthenticated, dataLoaded, isSaving]);
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -322,6 +328,7 @@ const App: React.FC = () => {
       setClients([]);
       setExpenses([]);
       setRatings([]);
+      setBonusEntries([]);
       setDataLoaded(true); // Mark as loaded (new account, no data to load)
 
       // Auth state is already set by LoginView via auth context
@@ -343,6 +350,7 @@ const App: React.FC = () => {
     setAppointments([]);
     setExpenses([]);
     setRatings([]);
+    setBonusEntries([]);
     setDataLoaded(false); // Reset data loaded flag
     setCurrentView(ViewState.DASHBOARD); // Reset view on logout
   };
@@ -436,6 +444,18 @@ const App: React.FC = () => {
     setExpenses(expenses.filter(e => e.id !== id));
   };
 
+  const handleAddBonus = (entry: BonusEntry) => {
+    setBonusEntries(prev => [...prev, entry]);
+  };
+
+  const handleUpdateBonus = (updated: BonusEntry) => {
+    setBonusEntries(prev => prev.map(b => b.id === updated.id ? updated : b));
+  };
+
+  const handleDeleteBonus = (id: string) => {
+    setBonusEntries(prev => prev.filter(b => b.id !== id));
+  };
+
   const handleResetEarnings = async () => {
     if (!confirm('Are you sure you want to reset all earnings? This will remove all completed appointments and expenses. A summary email will be sent to your email address.')) {
       return;
@@ -520,9 +540,10 @@ const App: React.FC = () => {
         console.warn('Failed to send earnings reset email');
       }
 
-      // Clear completed appointments and all expenses
+      // Clear completed appointments, all expenses, and bonus entries
       setAppointments(prev => prev.filter(a => a.status !== AppointmentStatus.COMPLETED));
       setExpenses([]);
+      setBonusEntries([]);
 
       alert('Earnings have been reset. A summary email has been sent to your email address.');
     } catch (error) {
@@ -672,10 +693,15 @@ const App: React.FC = () => {
             business={businessProfile} 
             appointments={appointments} 
             expenses={expenses}
+            bonusEntries={bonusEntries}
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
             onUpdateBusiness={handleUpdateBusiness}
             onResetEarnings={handleResetEarnings}
+            onUpdateAppointment={handleUpdateAppointment}
+            onAddBonus={handleAddBonus}
+            onUpdateBonus={handleUpdateBonus}
+            onDeleteBonus={handleDeleteBonus}
         />;
 
       case ViewState.CLIENTS:
@@ -712,6 +738,7 @@ const App: React.FC = () => {
             ratings={ratings}
             onViewAllAppointments={() => setCurrentView(ViewState.CLIENTS)} 
             onUpdateAppointment={handleUpdateAppointment}
+            onAddAppointment={handleAddAppointment}
             onRemoveAppointment={handleRemoveAppointment}
             onNavigateToCalendar={() => setCurrentView(ViewState.CALENDAR)}
         />;
