@@ -82,6 +82,31 @@ app.post('/auth/google', async (req, res) => {
       return res.status(400).json({ error: 'Email not found in Google account' });
     }
 
+    // Ensure user_data record exists (create if new Google user)
+    if (supabase) {
+      const { data: existingUser } = await supabase
+        .from('user_data').select('email').eq('email', email).single();
+      if (!existingUser) {
+        const { error: insertError } = await supabase
+          .from('user_data')
+          .insert({
+            email,
+            password_hash: null,
+            business_profile: null,
+            clients: [],
+            appointments: [],
+            expenses: [],
+            ratings: [],
+            bonus_entries: []
+          });
+        if (insertError) {
+          console.error('Google auth - user record creation error:', insertError);
+        } else {
+          console.log(`✅ Created user_data record for Google user: ${email}`);
+        }
+      }
+    }
+
     // Create session
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     sessions.set(sessionId, {
@@ -201,10 +226,8 @@ app.post('/auth/email', async (req, res) => {
 
     // Verify password
     if (!user.password_hash) {
-      // User exists but no password set (legacy account or Google-only)
-      // For now, allow login without password for backward compatibility
-      // In production, you might want to require password reset
-      console.warn(`User ${email} has no password set`);
+      // User signed up via Google (no password set) — can't use email/password login
+      return res.status(401).json({ error: 'This account uses Google Sign-In. Please sign in with Google.' });
     } else {
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
       if (!passwordMatch) {

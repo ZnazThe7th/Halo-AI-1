@@ -99,6 +99,30 @@ app.post('/api/auth/google', async (req, res) => {
     const email = (userInfo.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'Email not found in Google account' });
 
+    // Ensure user_data record exists (upsert — create if new, do nothing if exists)
+    const { data: existingUser } = await supabase!
+      .from('user_data').select('email').eq('email', email).single();
+    if (!existingUser) {
+      const { error: insertError } = await supabase!
+        .from('user_data')
+        .insert({
+          email,
+          password_hash: null,
+          business_profile: null,
+          clients: [],
+          appointments: [],
+          expenses: [],
+          ratings: [],
+          bonus_entries: []
+        });
+      if (insertError) {
+        console.error('Google auth - user record creation error:', insertError);
+        // Don't fail login, just log the error — save endpoint will retry with upsert
+      } else {
+        console.log(`✅ Created user_data record for Google user: ${email}`);
+      }
+    }
+
     const sessionId = createSession(email, res);
     res.json({ email, sessionId });
   } catch (error) {
@@ -148,6 +172,9 @@ app.post('/api/auth/email', async (req, res) => {
     if (user.password_hash) {
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
       if (!passwordMatch) return res.status(401).json({ error: 'Invalid email or password' });
+    } else {
+      // User signed up via Google (no password set) — can't use email/password login
+      return res.status(401).json({ error: 'This account uses Google Sign-In. Please sign in with Google.' });
     }
 
     const sessionId = createSession(email, res);

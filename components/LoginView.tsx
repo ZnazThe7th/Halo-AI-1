@@ -54,34 +54,52 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
         throw new Error('No access token received from Google');
       }
 
-      // Try to authenticate with backend API (optional - falls back to localStorage if unavailable)
+      // Authenticate with backend API first (creates session + user_data record)
       const authResult = await authenticateWithGoogle(tokenResponse.access_token);
       
-      // If API is unavailable, continue with localStorage-only mode
+      // Use the backend's normalized (lowercased) email when available
+      let userEmail: string | null = authResult.data?.email?.toLowerCase().trim() || null;
+      let userName: string = '';
+      let backendAvailable = true;
+      
       if (authResult.error === 'API_UNAVAILABLE') {
         console.warn('Backend API not available, using localStorage-only mode');
-        // Continue with local auth
+        backendAvailable = false;
       } else if (authResult.error || !authResult.data) {
-        // Other errors - show notification but still allow local auth
-        console.warn('API authentication failed, using localStorage-only mode:', authResult.error);
+        console.warn('API authentication failed:', authResult.error);
+        backendAvailable = false;
+        // Show a warning but don't block login
+        setNotification({
+          title: "Sync Warning",
+          message: `Backend auth issue: ${authResult.error || 'Unknown error'}. Data may not sync across devices.`
+        });
       }
 
       // Always persist locally (works even if API is unavailable)
       login(tokenResponse.access_token);
 
-      // Fetch user info from Google for UI purposes
-      const userInfo = await fetchGoogleUserInfo(tokenResponse.access_token);
+      // Fetch user info from Google for name + fallback email
+      try {
+        const userInfo = await fetchGoogleUserInfo(tokenResponse.access_token);
+        userName = userInfo.name || '';
+        // Only use Google email as fallback if backend didn't provide one
+        if (!userEmail) {
+          userEmail = (userInfo.email || '').toLowerCase().trim();
+        }
+      } catch (e) {
+        console.warn('Failed to fetch Google user info:', e);
+      }
       
       setIsLoading(false);
       
       // Small delay to ensure auth state propagates before calling callbacks
       setTimeout(() => {
         if (mode === 'signup') {
-          const businessName = extractBusinessName(userInfo.email, userInfo.name);
-          onSignup(userInfo.name, businessName, userInfo.email);
+          const bName = extractBusinessName(userEmail || '', userName);
+          onSignup(userName, bName, userEmail || '');
         } else {
-          // For sign in, pass the email from Google
-          onLogin(userInfo.email);
+          // For sign in, pass the normalized email
+          onLogin(userEmail || undefined);
         }
       }, 200);
     } catch (error) {
@@ -141,19 +159,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
     if (!email || !password) return;
     if (mode === 'signup' && (!fullName || !businessName)) return;
 
+    // Normalize email to lowercase to prevent case-sensitivity issues
+    const normalizedEmail = email.toLowerCase().trim();
+
     setIsLoading(true);
     try {
       if (mode === 'signup') {
         // Sign up with email and password
-        const signupResult = await signupWithEmail(email, password);
+        const signupResult = await signupWithEmail(normalizedEmail, password);
         
         if (signupResult.error === 'API_UNAVAILABLE') {
           // Backend not available - fall back to localStorage-only mode
           console.warn('Backend API not available, using localStorage-only mode');
-          const emailToken = `email_${btoa(email)}_${Date.now()}`;
+          const emailToken = `email_${btoa(normalizedEmail)}_${Date.now()}`;
           login(emailToken);
           setIsLoading(false);
-          onSignup(fullName, businessName, email);
+          onSignup(fullName, businessName, normalizedEmail);
           return;
         } else if (signupResult.error || !signupResult.data) {
           // Show error and don't proceed
@@ -165,22 +186,23 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
           return;
         }
 
-        // Signup successful - create session token
-        const emailToken = `email_${btoa(email)}_${Date.now()}`;
+        // Signup successful - use backend's normalized email
+        const backendEmail = signupResult.data.email || normalizedEmail;
+        const emailToken = `email_${btoa(backendEmail)}_${Date.now()}`;
         login(emailToken);
         setIsLoading(false);
-        onSignup(fullName, businessName, email);
+        onSignup(fullName, businessName, backendEmail);
       } else {
         // Sign in with email and password
-        const authResult = await authenticateWithEmail(email, password);
+        const authResult = await authenticateWithEmail(normalizedEmail, password);
         
         if (authResult.error === 'API_UNAVAILABLE') {
           // Backend not available - fall back to localStorage-only mode
           console.warn('Backend API not available, using localStorage-only mode');
-          const emailToken = `email_${btoa(email)}_${Date.now()}`;
+          const emailToken = `email_${btoa(normalizedEmail)}_${Date.now()}`;
           login(emailToken);
           setIsLoading(false);
-          onLogin(email);
+          onLogin(normalizedEmail);
           return;
         } else if (authResult.error || !authResult.data) {
           // Show error and don't proceed
@@ -192,11 +214,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
           return;
         }
 
-        // Authentication successful - create session token
-        const emailToken = `email_${btoa(email)}_${Date.now()}`;
+        // Authentication successful - use backend's normalized email
+        const backendEmail = authResult.data.email || normalizedEmail;
+        const emailToken = `email_${btoa(backendEmail)}_${Date.now()}`;
         login(emailToken);
         setIsLoading(false);
-        onLogin(email);
+        onLogin(backendEmail);
       }
     } catch (error) {
       console.error('Email authentication error:', error);

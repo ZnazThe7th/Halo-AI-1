@@ -24,7 +24,7 @@ export async function authenticateWithGoogle(accessToken: string): Promise<ApiRe
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify({ accessToken }),
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(15000) // 15 second timeout (Vercel cold starts can be slow)
     });
 
     if (!response.ok) {
@@ -57,7 +57,7 @@ export async function signupWithEmail(email: string, password: string): Promise<
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify({ email, password }),
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(15000) // 15 second timeout (Vercel cold starts can be slow)
     });
 
     if (!response.ok) {
@@ -90,7 +90,7 @@ export async function authenticateWithEmail(email: string, password: string): Pr
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify({ email, password }),
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(15000) // 15 second timeout (Vercel cold starts)
     });
 
     if (!response.ok) {
@@ -156,7 +156,7 @@ export async function saveUserData(data: {
       },
       credentials: 'include', // Include cookies
       body: JSON.stringify(data),
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(15000) // 15 second timeout (Vercel cold starts)
     });
 
     if (!response.ok) {
@@ -195,7 +195,7 @@ export async function loadUserData(): Promise<ApiResponse<{
     const response = await fetch(`${API_URL}/load`, {
       method: 'GET',
       credentials: 'include', // Include cookies
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(15000) // 15 second timeout (Vercel cold starts)
     });
 
     if (!response.ok) {
@@ -315,7 +315,7 @@ export async function listSavePoints(): Promise<ApiResponse<SavePointMeta[]>> {
     const response = await fetch(`${API_URL}/savepoints`, {
       method: 'GET',
       credentials: 'include',
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(15000)
     });
 
     if (!response.ok) {
@@ -372,7 +372,7 @@ export async function deleteSavePoint(id: string): Promise<ApiResponse<{ success
     const response = await fetch(`${API_URL}/savepoints/${id}`, {
       method: 'DELETE',
       credentials: 'include',
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(15000)
     });
 
     if (!response.ok) {
