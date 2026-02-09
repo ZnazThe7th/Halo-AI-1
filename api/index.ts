@@ -96,7 +96,7 @@ app.post('/api/auth/google', async (req, res) => {
     if (!response.ok) return res.status(401).json({ error: 'Invalid Google token' });
 
     const userInfo: any = await response.json();
-    const email = userInfo.email;
+    const email = (userInfo.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'Email not found in Google account' });
 
     const sessionId = createSession(email, res);
@@ -110,7 +110,8 @@ app.post('/api/auth/google', async (req, res) => {
 app.post('/api/auth/signup', async (req, res) => {
   try {
     if (!requireDB(res)) return;
-    const { email, password } = req.body;
+    const email = (req.body.email || '').toLowerCase().trim();
+    const password = req.body.password;
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required' });
     if (!password || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
@@ -135,7 +136,8 @@ app.post('/api/auth/signup', async (req, res) => {
 app.post('/api/auth/email', async (req, res) => {
   try {
     if (!requireDB(res)) return;
-    const { email, password } = req.body;
+    const email = (req.body.email || '').toLowerCase().trim();
+    const password = req.body.password;
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required' });
     if (!password) return res.status(400).json({ error: 'Password required' });
 

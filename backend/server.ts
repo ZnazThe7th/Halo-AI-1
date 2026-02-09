@@ -76,7 +76,7 @@ app.post('/auth/google', async (req, res) => {
     }
 
     const userInfo: any = await response.json();
-    const email = userInfo.email;
+    const email = (userInfo.email || '').toLowerCase().trim();
 
     if (!email) {
       return res.status(400).json({ error: 'Email not found in Google account' });
@@ -108,7 +108,8 @@ app.post('/auth/google', async (req, res) => {
 app.post('/auth/signup', async (req, res) => {
   try {
     if (!requireDB(res)) return;
-    const { email, password } = req.body;
+    const email = (req.body.email || '').toLowerCase().trim();
+    const password = req.body.password;
     
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email required' });
@@ -176,7 +177,8 @@ app.post('/auth/signup', async (req, res) => {
 app.post('/auth/email', async (req, res) => {
   try {
     if (!requireDB(res)) return;
-    const { email, password } = req.body;
+    const email = (req.body.email || '').toLowerCase().trim();
+    const password = req.body.password;
     
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email required' });
