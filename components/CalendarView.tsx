@@ -57,6 +57,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   const [editForm, setEditForm] = useState<Partial<Appointment>>({});
   const [isNew, setIsNew] = useState(false);
   const [entryType, setEntryType] = useState<'APPOINTMENT' | 'BLOCK'>('APPOINTMENT');
+  const [confirmModal, setConfirmModal] = useState<{ show: boolean; message: string; onConfirm: () => void } | null>(null);
 
   // Calendar Logic Helpers
   const handlePrev = () => {
@@ -455,34 +456,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   };
 
   const handleCancel = () => {
-      if (selectedAppointment) {
-          if (confirm("Are you sure you want to cancel this appointment?")) {
-              // If recurring, create a cancelled instance for this date only
-              if (selectedAppointment.recurrence) {
-                  const cancelledInstance: Appointment = {
-                      ...selectedAppointment,
-                      id: Math.random().toString(36).substring(2, 9) + '_cancelled',
-                      status: AppointmentStatus.CANCELLED,
-                      recurrence: undefined,
-                      date: selectedAppointment.date
-                  };
-                  onAddAppointment(cancelledInstance);
-                  const updatedWithDisplayTime = { 
-                      ...cancelledInstance, 
-                      displayTime: selectedAppointment.displayTime || formatTime(cancelledInstance.time)
-                  };
-                  setSelectedAppointment(updatedWithDisplayTime);
-              } else {
-                  const cancelledAppt = { ...selectedAppointment, status: AppointmentStatus.CANCELLED };
-                  onUpdateAppointment(cancelledAppt);
-                  const updatedWithDisplayTime = { 
-                      ...cancelledAppt, 
-                      displayTime: selectedAppointment.displayTime || formatTime(cancelledAppt.time)
-                  };
-                  setSelectedAppointment(updatedWithDisplayTime);
+      if (!selectedAppointment) return;
+      // Non-blocking: show custom confirm modal instead of blocking confirm()
+      requestAnimationFrame(() => {
+          setConfirmModal({
+              show: true,
+              message: 'Are you sure you want to cancel this appointment?',
+              onConfirm: () => {
+                  setConfirmModal(null);
+                  requestAnimationFrame(() => {
+                      if (selectedAppointment.recurrence) {
+                          const cancelledInstance: Appointment = {
+                              ...selectedAppointment,
+                              id: Math.random().toString(36).substring(2, 9) + '_cancelled',
+                              status: AppointmentStatus.CANCELLED,
+                              recurrence: undefined,
+                              date: selectedAppointment.date
+                          };
+                          onAddAppointment(cancelledInstance);
+                          setSelectedAppointment({ 
+                              ...cancelledInstance, 
+                              displayTime: selectedAppointment.displayTime || formatTime(cancelledInstance.time)
+                          });
+                      } else {
+                          const cancelledAppt = { ...selectedAppointment, status: AppointmentStatus.CANCELLED };
+                          onUpdateAppointment(cancelledAppt);
+                          setSelectedAppointment({ 
+                              ...cancelledAppt, 
+                              displayTime: selectedAppointment.displayTime || formatTime(cancelledAppt.time)
+                          });
+                      }
+                  });
               }
-          }
-      }
+          });
+      });
   };
 
   const toggleRecurrence = () => {
@@ -1189,6 +1196,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                   </div>
               </div>
           </div>
+      )}
+
+      {/* Confirm Modal (non-blocking replacement for confirm()) */}
+      {confirmModal?.show && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-700 p-6 sm:p-8 max-w-sm w-full shadow-2xl">
+            <p className="text-white text-sm font-bold uppercase tracking-widest mb-6">{confirmModal.message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 py-3 border border-zinc-700 text-white font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 transition-colors"
+              >
+                No
+              </button>
+              <button
+                onClick={confirmModal.onConfirm}
+                className="flex-1 py-3 bg-red-700 text-white font-bold uppercase tracking-widest text-xs hover:bg-red-600 transition-colors"
+              >
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
