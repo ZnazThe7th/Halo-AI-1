@@ -130,10 +130,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
           });
         }
       } else if (result.data) {
-        setTestEmailStatus({
-          success: true,
-          message: `Test email sent! Check ${business.email} for your daily schedule report.`
-        });
+        if (result.data.sent > 0) {
+          setTestEmailStatus({
+            success: true,
+            message: `Test email sent! Check ${business.email} for your daily schedule report.`
+          });
+        } else {
+          // API responded but no email was actually sent
+          const errorDetail = result.data.errors?.join('; ') || '';
+          setTestEmailStatus({
+            success: false,
+            message: errorDetail
+              ? `Email could not be sent: ${errorDetail}`
+              : 'Email service not configured. Add EMAIL_API_URL in your Vercel environment variables (e.g. Resend, SendGrid endpoint).'
+          });
+        }
       }
     } catch (error) {
       setTestEmailStatus({

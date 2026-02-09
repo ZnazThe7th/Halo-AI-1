@@ -945,13 +945,13 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 z-40 flex items-center justify-around px-2 py-2 safe-area-inset-bottom">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 z-40 flex items-center justify-around px-1 py-2 safe-area-inset-bottom">
         <button
           onClick={() => {
             setCurrentView(ViewState.DASHBOARD);
             setIsMobileMenuOpen(false);
           }}
-          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.DASHBOARD 
               ? 'text-orange-600 dark:text-orange-500' 
               : 'text-zinc-500 dark:text-zinc-400'
@@ -967,7 +967,7 @@ const App: React.FC = () => {
             setCurrentView(ViewState.CLIENTS);
             setIsMobileMenuOpen(false);
           }}
-          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.CLIENTS 
               ? 'text-orange-600 dark:text-orange-500' 
               : 'text-zinc-500 dark:text-zinc-400'
@@ -982,14 +982,14 @@ const App: React.FC = () => {
             setCurrentView(ViewState.CALENDAR);
             setIsMobileMenuOpen(false);
           }}
-          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.CALENDAR 
               ? 'text-orange-600 dark:text-orange-500' 
               : 'text-zinc-500 dark:text-zinc-400'
           }`}
         >
           <CalendarIcon className="w-5 h-5" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Calendar</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">Cal</span>
         </button>
 
         <button
@@ -997,14 +997,29 @@ const App: React.FC = () => {
             setCurrentView(ViewState.MY_BUSINESS);
             setIsMobileMenuOpen(false);
           }}
-          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.MY_BUSINESS 
               ? 'text-orange-600 dark:text-orange-500' 
               : 'text-zinc-500 dark:text-zinc-400'
           }`}
         >
           <Briefcase className="w-5 h-5" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Business</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">Biz</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentView(ViewState.SAVE_POINTS);
+            setIsMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[48px] transition-colors ${
+            currentView === ViewState.SAVE_POINTS 
+              ? 'text-orange-600 dark:text-orange-500' 
+              : 'text-zinc-500 dark:text-zinc-400'
+          }`}
+        >
+          <HardDrive className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Saves</span>
         </button>
 
         <button
@@ -1012,7 +1027,7 @@ const App: React.FC = () => {
             setCurrentView(ViewState.SETTINGS);
             setIsMobileMenuOpen(false);
           }}
-          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[48px] transition-colors ${
             currentView === ViewState.SETTINGS 
               ? 'text-orange-600 dark:text-orange-500' 
               : 'text-zinc-500 dark:text-zinc-400'
