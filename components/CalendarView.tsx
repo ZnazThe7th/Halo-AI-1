@@ -117,6 +117,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   /**
    * Checks if an appointment occurs on a specific BASE date (UTC), handling recurrence.
    */
+  // Parse YYYY-MM-DD as LOCAL time (noon to avoid DST edge cases).
+  // new Date('YYYY-MM-DD') parses as UTC, which shifts getDay() in local time.
+  const parseLocalDate = (dateStr: string): Date => new Date(dateStr + 'T12:00:00');
+
   const isOccurrence = (appt: Appointment, targetDateStr: string): boolean => {
     // 1. Exact match (Base case)
     if (appt.date === targetDateStr) return true;
@@ -124,19 +128,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
     // 2. No recurrence? No match.
     if (!appt.recurrence) return false;
 
-    // 3. Check recurrence range
-    const apptDate = new Date(appt.date);
-    const targetDate = new Date(targetDateStr);
+    // 3. Check recurrence range — use local time parsing
+    const apptDate = parseLocalDate(appt.date);
+    const targetDate = parseLocalDate(targetDateStr);
     
     // If target is before start date
     if (targetDate < apptDate) return false;
     
     // If target is after end date (if exists)
-    if (appt.recurrence.endDate && targetDate > new Date(appt.recurrence.endDate)) return false;
+    if (appt.recurrence.endDate && targetDate > parseLocalDate(appt.recurrence.endDate)) return false;
 
     // 4. Check Interval logic
     const diffTime = Math.abs(targetDate.getTime() - apptDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (appt.recurrence.frequency === 'WEEKLY') {
         // Multi-day recurrence: check if target day of week is in selected days
@@ -148,7 +152,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
             const getWeekStart = (d: Date) => {
                 const date = new Date(d);
                 date.setDate(date.getDate() - date.getDay()); // Sunday start
-                date.setHours(0, 0, 0, 0);
+                date.setHours(12, 0, 0, 0);
                 return date;
             };
             const apptWeekStart = getWeekStart(apptDate);
@@ -497,7 +501,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
           setEditForm({ ...editForm, recurrence: undefined });
       } else {
           // Auto-select the current appointment's day of the week
-          const apptDate = editForm.date ? new Date(editForm.date + 'T00:00:00') : new Date();
+          const apptDate = editForm.date ? parseLocalDate(editForm.date) : new Date();
           const currentDay = apptDate.getDay(); // 0=Sun ... 6=Sat
           setEditForm({
               ...editForm,
