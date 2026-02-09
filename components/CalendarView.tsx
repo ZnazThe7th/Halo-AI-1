@@ -767,11 +767,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                     e.stopPropagation(); 
                                                     // Get the latest appointment data from the appointments prop
                                                     const latestAppt = appointments.find(a => a.id === appt.id) || appt;
-                                                    setSelectedAppointment({ ...latestAppt, displayTime: appt.displayTime });
+                                                    // IMPORTANT: Use appt.date (the target display date) instead of latestAppt.date
+                                                    // For recurring appointments, latestAppt has the original base date,
+                                                    // but appt.date has been corrected to the currently viewed date by getAppointmentsForDate
+                                                    setSelectedAppointment({ ...latestAppt, date: appt.date, displayTime: appt.displayTime });
                                                     setIsEditing(false); 
                                                     setIsNew(false); 
                                                 }}
-                                                className={`absolute inset-x-0.5 sm:inset-x-1 rounded-sm p-0.5 sm:p-2 text-[8px] sm:text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
+                                                className={`absolute z-[5] inset-x-0.5 sm:inset-x-1 rounded-sm p-0.5 sm:p-2 text-[8px] sm:text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
                                                     isBlocked ? 'bg-zinc-900 border-zinc-600 text-zinc-400 border-dashed opacity-80' :
                                                     appt.status === AppointmentStatus.CANCELLED ? 'bg-red-900/80 border-red-500 text-red-100 line-through opacity-70' :
                                                     appt.status === AppointmentStatus.CONFIRMED ? 'bg-emerald-900/80 border-emerald-500 text-white' :

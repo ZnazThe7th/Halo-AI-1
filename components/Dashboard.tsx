@@ -29,6 +29,48 @@ const Dashboard: React.FC<DashboardProps> = ({
     // Basic stats logic
     const today = new Date().toISOString().split('T')[0];
 
+    // --- Recurrence helpers (must match CalendarView logic) ---
+    const parseLocalDate = (dateStr: string): Date => new Date(dateStr + 'T12:00:00');
+
+    const isOccurrenceOnDate = (appt: Appointment, targetDateStr: string): boolean => {
+        if (appt.date === targetDateStr) return true;
+        if (!appt.recurrence) return false;
+
+        const apptDate = parseLocalDate(appt.date);
+        const targetDate = parseLocalDate(targetDateStr);
+        if (targetDate < apptDate) return false;
+        if (appt.recurrence.endDate && targetDate > parseLocalDate(appt.recurrence.endDate)) return false;
+
+        const diffTime = Math.abs(targetDate.getTime() - apptDate.getTime());
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (appt.recurrence.frequency === 'WEEKLY') {
+            if (appt.recurrence.daysOfWeek && appt.recurrence.daysOfWeek.length > 0) {
+                const targetDayOfWeek = targetDate.getDay();
+                if (!appt.recurrence.daysOfWeek.includes(targetDayOfWeek)) return false;
+                const getWeekStart = (d: Date) => {
+                    const date = new Date(d);
+                    date.setDate(date.getDate() - date.getDay());
+                    date.setHours(12, 0, 0, 0);
+                    return date;
+                };
+                const weeksDiff = Math.round(
+                    (getWeekStart(targetDate).getTime() - getWeekStart(apptDate).getTime()) / (7 * 24 * 60 * 60 * 1000)
+                );
+                return weeksDiff >= 0 && weeksDiff % appt.recurrence.interval === 0;
+            }
+            if (diffDays % 7 !== 0) return false;
+            return (diffDays / 7) % appt.recurrence.interval === 0;
+        }
+        if (appt.recurrence.frequency === 'MONTHLY') {
+            if (targetDate.getDate() !== apptDate.getDate()) return false;
+            const monthDiff = (targetDate.getFullYear() - apptDate.getFullYear()) * 12 +
+                              (targetDate.getMonth() - apptDate.getMonth());
+            return monthDiff % appt.recurrence.interval === 0;
+        }
+        return false;
+    };
+
     // Build a set of overridden date+time+service+client keys from completed/cancelled instances
     // so we can filter out recurring parents that have been individually resolved
     const overriddenKeys = useMemo(() => {
@@ -41,15 +83,38 @@ const Dashboard: React.FC<DashboardProps> = ({
         return keys;
     }, [appointments]);
 
-    // Check if a recurring parent should be hidden because a completed/cancelled instance exists
+    // Check if a recurring parent should be hidden on a given date
+    const isOverriddenRecurringOnDate = (appt: Appointment, dateStr: string): boolean => {
+        if (!appt.recurrence) return false;
+        return overriddenKeys.has(`${dateStr}_${appt.time}_${appt.serviceId}_${appt.clientName}`);
+    };
+
+    // Legacy helper for non-date-specific checks (past/upcoming)
     const isOverriddenRecurring = (appt: Appointment): boolean => {
         if (!appt.recurrence) return false;
         return overriddenKeys.has(`${appt.date}_${appt.time}_${appt.serviceId}_${appt.clientName}`);
     };
 
-    const todayAppointments = appointments
-        .filter(a => a.date === today && !isOverriddenRecurring(a))
-        .sort((a,b) => a.time.localeCompare(b.time));
+    // Today's appointments: include recurring ones that occur today
+    const todayAppointments = useMemo(() => {
+        const result: Appointment[] = [];
+        const seenIds = new Set<string>();
+
+        appointments.forEach(appt => {
+            if (seenIds.has(appt.id)) return;
+            if (isOccurrenceOnDate(appt, today) && !isOverriddenRecurringOnDate(appt, today)) {
+                seenIds.add(appt.id);
+                // Normalize date to today for recurring appointments shown on today
+                const displayAppt = appt.recurrence && appt.date !== today
+                    ? { ...appt, date: today }
+                    : appt;
+                result.push(displayAppt);
+            }
+        });
+
+        return result.sort((a, b) => a.time.localeCompare(b.time));
+    }, [appointments, today, overriddenKeys]);
+
     const upcomingAppointments = appointments
         .filter(a => a.date > today && !isOverriddenRecurring(a))
         .sort((a,b) => a.date.localeCompare(b.date));
