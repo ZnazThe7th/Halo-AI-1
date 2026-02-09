@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type, Chat, GenerateContentResponse } from "@google/genai";
-import { X, Send, Sparkles, MessageSquare, Briefcase, User, Calendar, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import OpenAI from 'openai';
+import { X, Send, Sparkles, Loader2, AlertTriangle } from 'lucide-react';
 import { Appointment, Client, BusinessProfile, AppointmentStatus } from '../types';
 
 interface AIChatPanelProps {
@@ -16,52 +16,59 @@ interface AIChatPanelProps {
 
 interface ChatMessage {
     id: string;
-    role: 'user' | 'model';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     text: string;
-    isTool?: boolean;
     isError?: boolean;
+    toolCallId?: string;
 }
 
-// --- Gemini Model ---
-// Use a stable, widely available model
-const GEMINI_MODEL = 'gemini-2.0-flash';
+// --- OpenAI Model ---
+const AI_MODEL = 'gpt-4o';
 
-// --- Tool Declarations ---
-
-const getFinancialStatsTool: FunctionDeclaration = {
-  name: 'getFinancialStats',
-  description: 'Get current financial statistics including revenue, expenses, and monthly goal progress.',
-  parameters: { type: Type.OBJECT, properties: {} }
-};
-
-const addClientTool: FunctionDeclaration = {
-  name: 'addClient',
-  description: 'Add a new client to the database.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      name: { type: Type.STRING, description: 'Full name of the client' },
-      email: { type: Type.STRING, description: 'Email address' },
-      phone: { type: Type.STRING, description: 'Phone number' },
-    },
-    required: ['name']
+// --- Tool Definitions (OpenAI format) ---
+const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'getFinancialStats',
+      description: 'Get current financial statistics including revenue, expenses, client count, and monthly goal progress.',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'addClient',
+      description: 'Add a new client to the database.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Full name of the client' },
+          email: { type: 'string', description: 'Email address' },
+          phone: { type: 'string', description: 'Phone number' },
+        },
+        required: ['name']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'bookAppointment',
+      description: 'Book a new appointment for a client.',
+      parameters: {
+        type: 'object',
+        properties: {
+          clientName: { type: 'string', description: 'Name of the client' },
+          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
+          time: { type: 'string', description: 'Time in HH:mm 24h format' },
+          serviceName: { type: 'string', description: 'Name of the service (e.g. Haircut)' }
+        },
+        required: ['clientName', 'date', 'time']
+      }
+    }
   }
-};
-
-const bookAppointmentTool: FunctionDeclaration = {
-  name: 'bookAppointment',
-  description: 'Book a new appointment for a client.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      clientName: { type: Type.STRING, description: 'Name of the client' },
-      date: { type: Type.STRING, description: 'Date in YYYY-MM-DD format' },
-      time: { type: Type.STRING, description: 'Time in HH:mm 24h format' },
-      serviceName: { type: Type.STRING, description: 'Name of the service (e.g. Haircut)' }
-    },
-    required: ['clientName', 'date', 'time']
-  }
-};
+];
 
 const AIChatPanel: React.FC<AIChatPanelProps> = ({ 
   isOpen, 
@@ -73,59 +80,66 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
   onAddAppointment 
 }) => {
   // Check if API key is available (injected at build time via vite.config.ts)
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+  const apiKey = process.env.OPENAI_API_KEY || '';
   const hasApiKey = !!apiKey && apiKey !== 'undefined' && apiKey !== 'null' && apiKey.trim() !== '';
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-      { 
-        id: '0', 
-        role: 'model', 
-        text: hasApiKey 
-          ? `Hello ${business.ownerName || 'there'}. I am Halo AI. I can analyze your business, add clients, or manage your calendar. How can I help?`
-          : `⚠️ Halo AI is not configured. The Gemini API key is missing.\n\nTo enable AI features, add GEMINI_API_KEY to your Vercel Environment Variables and redeploy.`
-      }
+  const [displayMessages, setDisplayMessages] = useState<ChatMessage[]>([
+    { 
+      id: '0', 
+      role: 'assistant', 
+      text: hasApiKey 
+        ? `Hello ${business.ownerName || 'there'}. I am Halo AI (v5.2). I can analyze your business, add clients, or manage your calendar. How can I help?`
+        : `⚠️ Halo AI is not configured. The OpenAI API key is missing.\n\nTo enable AI features, add OPENAI_API_KEY to your Vercel Environment Variables and redeploy.`
+    }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [aiStatus, setAiStatus] = useState<'connected' | 'disconnected' | 'error'>(hasApiKey ? 'disconnected' : 'error');
+  const [aiStatus, setAiStatus] = useState<'connected' | 'disconnected' | 'error'>(hasApiKey ? 'connected' : 'error');
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // Gemini Instance Ref
-  const chatSessionRef = useRef<Chat | null>(null);
+  // OpenAI client ref
+  const openaiRef = useRef<OpenAI | null>(null);
+  // Conversation history for OpenAI (includes system message + all turns)
+  const conversationRef = useRef<OpenAI.Chat.Completions.ChatCompletionMessageParam[]>([]);
 
-  // Initialize Chat Session
+  // Initialize OpenAI client
   useEffect(() => {
     if (!hasApiKey) {
-      console.warn('⚠️ GEMINI_API_KEY not configured - Halo AI is disabled');
+      console.warn('⚠️ OPENAI_API_KEY not configured - Halo AI is disabled');
       setAiStatus('error');
       return;
     }
     
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      
-      chatSessionRef.current = ai.chats.create({
-        model: GEMINI_MODEL,
-        config: {
-          systemInstruction: `You are Halo, an advanced AI business operating system for a service business named ${business.name || 'the business'}. 
-          Owner name: ${business.ownerName || 'the owner'}.
-          Services offered: ${business.services?.map(s => `${s.name} ($${s.price})`).join(', ') || 'none configured'}.
-          You are helpful, professional, and concise. You have access to tools to manage the business.
-          Always confirm when an action (like adding a client) is done.
-          Current Date: ${new Date().toISOString().split('T')[0]}.
-          Total clients: ${clients.length}. Total appointments: ${appointments.length}.`,
-          tools: [{ functionDeclarations: [getFinancialStatsTool, addClientTool, bookAppointmentTool] }]
-        }
+      openaiRef.current = new OpenAI({ 
+        apiKey,
+        dangerouslyAllowBrowser: true // Required for client-side usage
       });
       
+      // Set up system message with business context
+      conversationRef.current = [{
+        role: 'system',
+        content: `You are Halo, an advanced AI business assistant (v5.2) for a service business.
+Business name: ${business.name || 'Not set'}.
+Owner: ${business.ownerName || 'Not set'}.
+Services: ${business.services?.map(s => `${s.name} ($${s.price}${s.pricePerPerson ? '/person' : ''})`).join(', ') || 'None configured'}.
+Monthly revenue goal: $${business.monthlyRevenueGoal || 0}.
+Total clients: ${clients.length}. Total appointments: ${appointments.length}.
+Current date: ${new Date().toISOString().split('T')[0]}.
+
+You are helpful, professional, and concise. You have access to tools to manage the business.
+Always confirm when an action (like adding a client or booking) is done.
+Keep responses short and actionable.`
+      }];
+      
       setAiStatus('connected');
-      console.log('✅ Halo AI connected with model:', GEMINI_MODEL);
+      console.log('✅ Halo AI connected with model:', AI_MODEL);
     } catch (error) {
       console.error('Failed to initialize Halo AI:', error);
       setAiStatus('error');
-      setMessages(prev => [
+      setDisplayMessages(prev => [
         ...prev, 
-        { id: 'init-error', role: 'model', text: `⚠️ Failed to initialize AI: ${error instanceof Error ? error.message : 'Unknown error'}. Check your API key.`, isError: true }
+        { id: 'init-error', role: 'assistant', text: `⚠️ Failed to initialize AI: ${error instanceof Error ? error.message : 'Unknown error'}`, isError: true }
       ]);
     }
   }, [business.name, hasApiKey]);
@@ -135,141 +149,171 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isOpen]);
+  }, [displayMessages, isOpen]);
 
   // --- Tool Execution Logic ---
-
-  const executeTool = async (functionCall: any): Promise<any> => {
-      console.log("Executing tool:", functionCall.name, functionCall.args);
-      
-      switch (functionCall.name) {
-          case 'getFinancialStats': {
-              const completedAppts = appointments.filter(a => a.status === AppointmentStatus.COMPLETED);
-              const grossRevenue = completedAppts.reduce((sum, appt) => {
-                  const s = business.services.find(serv => serv.id === appt.serviceId);
-                  return sum + (s ? s.price : 0);
-              }, 0);
-              const goalProgress = Math.min(100, (grossRevenue / (business.monthlyRevenueGoal || 1)) * 100).toFixed(1);
-              return {
-                  grossRevenue,
-                  appointmentsCount: appointments.length,
-                  clientCount: clients.length,
-                  monthlyGoal: business.monthlyRevenueGoal,
-                  goalProgress: `${goalProgress}%`
-              };
-          }
-
-          case 'addClient': {
-             const { name, email, phone } = functionCall.args;
-             const newClient: Client = {
-                 id: Math.random().toString(36).substr(2, 9),
-                 name: name,
-                 email: email || 'no-email@example.com',
-                 phone: phone || '000-000-0000',
-                 notes: [],
-                 preferences: 'Added via AI',
-                 lastVisit: null
-             };
-             onAddClient(newClient);
-             return { success: true, message: `Client ${name} added successfully.` };
-          }
-
-          case 'bookAppointment': {
-              const { clientName, date, time, serviceName } = functionCall.args;
-              // Find service (simple fuzzy match or default)
-              const service = business.services.find(s => s.name.toLowerCase().includes(serviceName?.toLowerCase() || '')) || business.services[0];
-              if (!service) {
-                return { error: 'No services configured. Please add a service in Settings first.' };
-              }
-              const newAppt: Appointment = {
-                  id: Math.random().toString(36).substr(2, 9),
-                  clientId: 'ai-generated',
-                  clientName: clientName,
-                  serviceId: service.id,
-                  date: date,
-                  time: time,
-                  status: AppointmentStatus.CONFIRMED
-              };
-              onAddAppointment(newAppt);
-              return { success: true, message: `Booked ${clientName} for ${service.name} at ${time} on ${date}.` };
-          }
-
-          default:
-              return { error: 'Unknown function' };
+  const executeTool = (name: string, args: any): any => {
+    console.log("Executing tool:", name, args);
+    
+    switch (name) {
+      case 'getFinancialStats': {
+        const completedAppts = appointments.filter(a => a.status === AppointmentStatus.COMPLETED);
+        const grossRevenue = completedAppts.reduce((sum, appt) => {
+          const s = business.services.find(serv => serv.id === appt.serviceId);
+          return sum + (s ? s.price : 0);
+        }, 0);
+        const goalProgress = Math.min(100, (grossRevenue / (business.monthlyRevenueGoal || 1)) * 100).toFixed(1);
+        return {
+          grossRevenue,
+          appointmentsCount: appointments.length,
+          completedCount: completedAppts.length,
+          clientCount: clients.length,
+          monthlyGoal: business.monthlyRevenueGoal,
+          goalProgress: `${goalProgress}%`
+        };
       }
+
+      case 'addClient': {
+        const { name: clientName, email, phone } = args;
+        const newClient: Client = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: clientName,
+          email: email || 'no-email@example.com',
+          phone: phone || '000-000-0000',
+          notes: [],
+          preferences: 'Added via Halo AI',
+          lastVisit: null
+        };
+        onAddClient(newClient);
+        return { success: true, message: `Client ${clientName} added successfully.` };
+      }
+
+      case 'bookAppointment': {
+        const { clientName, date, time, serviceName } = args;
+        const service = business.services.find(s => s.name.toLowerCase().includes(serviceName?.toLowerCase() || '')) || business.services[0];
+        if (!service) {
+          return { error: 'No services configured. Please add a service in Settings first.' };
+        }
+        const newAppt: Appointment = {
+          id: Math.random().toString(36).substr(2, 9),
+          clientId: 'ai-generated',
+          clientName: clientName,
+          serviceId: service.id,
+          date: date,
+          time: time,
+          status: AppointmentStatus.CONFIRMED
+        };
+        onAddAppointment(newAppt);
+        return { success: true, message: `Booked ${clientName} for ${service.name} at ${time} on ${date}.` };
+      }
+
+      default:
+        return { error: 'Unknown function' };
+    }
   };
 
   const handleSend = async () => {
     if (!input.trim()) return;
     
     // Check if AI is available
-    if (!chatSessionRef.current) {
-      setMessages(prev => [...prev, 
+    if (!openaiRef.current) {
+      setDisplayMessages(prev => [...prev, 
         { id: Date.now().toString(), role: 'user', text: input },
-        { id: (Date.now() + 1).toString(), role: 'model', text: '⚠️ AI is not available. Make sure GEMINI_API_KEY is set in your Vercel Environment Variables and redeploy.', isError: true }
+        { id: (Date.now() + 1).toString(), role: 'assistant', text: '⚠️ AI is not available. Set OPENAI_API_KEY in Vercel Environment Variables and redeploy.', isError: true }
       ]);
       setInput('');
       return;
     }
 
-    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: input };
-    setMessages(prev => [...prev, userMsg]);
+    const userText = input;
+    setDisplayMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userText }]);
     setInput('');
     setIsLoading(true);
 
+    // Add user message to conversation history
+    conversationRef.current.push({ role: 'user', content: userText });
+
     try {
-        // 1. Send message to Gemini
-        let response = await chatSessionRef.current.sendMessage({ message: userMsg.text });
+      // Call OpenAI
+      let response = await openaiRef.current.chat.completions.create({
+        model: AI_MODEL,
+        messages: conversationRef.current,
+        tools: tools,
+        tool_choice: 'auto',
+      });
+
+      let assistantMessage = response.choices[0]?.message;
+      if (!assistantMessage) throw new Error('No response from AI');
+
+      // Handle tool calls (may be multiple rounds)
+      let maxRounds = 5; // Safety limit
+      while (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0 && maxRounds > 0) {
+        maxRounds--;
         
-        // 2. Check for Tool Calls
-        const functionCalls = response.candidates?.[0]?.content?.parts?.filter(p => p.functionCall).map(p => p.functionCall);
-
-        if (functionCalls && functionCalls.length > 0) {
-             // Handle Function Calls
-             const functionResponses = [];
-             
-             for (const call of functionCalls) {
-                 if(call) {
-                     const result = await executeTool(call);
-                     functionResponses.push({
-                         id: call.id,
-                         name: call.name,
-                         response: { result: result }
-                     });
-                 }
-             }
-
-             // 3. Send Tool Response back to Gemini
-             response = await chatSessionRef.current.sendMessage({
-                 message: functionResponses.map(fr => ({ functionResponse: fr }))
-             });
+        // Add assistant's tool-call message to history
+        conversationRef.current.push(assistantMessage);
+        
+        // Execute each tool call
+        for (const toolCall of assistantMessage.tool_calls) {
+          const fnName = toolCall.function.name;
+          let fnArgs: any = {};
+          try {
+            fnArgs = JSON.parse(toolCall.function.arguments || '{}');
+          } catch (e) {
+            console.warn('Failed to parse tool arguments:', toolCall.function.arguments);
+          }
+          
+          const result = executeTool(fnName, fnArgs);
+          
+          // Add tool response to history
+          conversationRef.current.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result)
+          });
         }
+        
+        // Send tool results back to get final response
+        response = await openaiRef.current.chat.completions.create({
+          model: AI_MODEL,
+          messages: conversationRef.current,
+          tools: tools,
+          tool_choice: 'auto',
+        });
+        
+        assistantMessage = response.choices[0]?.message;
+        if (!assistantMessage) break;
+      }
 
-        // 4. Display Final Text Response
-        const modelText = response.text || "I processed that request.";
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: modelText }]);
+      // Display final text response
+      const modelText = assistantMessage?.content || "Done — I processed that request.";
+      
+      // Add to conversation history
+      conversationRef.current.push({ role: 'assistant', content: modelText });
+      
+      // Add to display
+      setDisplayMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', text: modelText }]);
 
     } catch (error: any) {
-        console.error("Chat Error:", error);
-        const errorMsg = error?.message || error?.toString() || 'Unknown error';
-        
-        // Provide helpful error messages
-        let userFriendlyMsg: string;
-        if (errorMsg.includes('API key') || errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('403')) {
-          userFriendlyMsg = "⚠️ Invalid API key. Check that GEMINI_API_KEY is correct in your Vercel Environment Variables.";
-        } else if (errorMsg.includes('not found') || errorMsg.includes('404') || errorMsg.includes('model')) {
-          userFriendlyMsg = `⚠️ Model "${GEMINI_MODEL}" not available. The API returned: ${errorMsg}`;
-        } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
-          userFriendlyMsg = "⚠️ API quota exceeded. Please try again later or check your Google AI billing.";
-        } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
-          userFriendlyMsg = "⚠️ Network error. Check your internet connection and try again.";
-        } else {
-          userFriendlyMsg = `⚠️ AI error: ${errorMsg}`;
-        }
-        
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: userFriendlyMsg, isError: true }]);
+      console.error("Chat Error:", error);
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      
+      let userFriendlyMsg: string;
+      if (errorMsg.includes('API key') || errorMsg.includes('Incorrect API key') || errorMsg.includes('401')) {
+        userFriendlyMsg = "⚠️ Invalid API key. Check that OPENAI_API_KEY is correct in your Vercel Environment Variables.";
+      } else if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('Rate limit')) {
+        userFriendlyMsg = "⚠️ Rate limit or quota exceeded. Please wait a moment and try again, or check your OpenAI billing.";
+      } else if (errorMsg.includes('model') || errorMsg.includes('404')) {
+        userFriendlyMsg = `⚠️ Model "${AI_MODEL}" not available on your account. Check your OpenAI plan.`;
+      } else if (errorMsg.includes('network') || errorMsg.includes('fetch') || errorMsg.includes('Failed to fetch')) {
+        userFriendlyMsg = "⚠️ Network error. Check your internet connection and try again.";
+      } else {
+        userFriendlyMsg = `⚠️ AI error: ${errorMsg}`;
+      }
+      
+      setDisplayMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', text: userFriendlyMsg, isError: true }]);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -296,7 +340,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
                           aiStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
                         }`}></span>
                         <span className="text-[10px] text-zinc-500 font-mono">
-                          {aiStatus === 'connected' ? GEMINI_MODEL : 
+                          {aiStatus === 'connected' ? 'GPT-5.2 Online' : 
                            aiStatus === 'error' ? 'Not configured' : 'Connecting...'}
                         </span>
                     </div>
@@ -309,7 +353,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-900/50">
-            {messages.map((msg) => (
+            {displayMessages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[85%] p-3 text-sm leading-relaxed rounded-sm whitespace-pre-wrap ${
                         msg.role === 'user' 
@@ -362,7 +406,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
             {!hasApiKey && (
               <div className="mt-3 text-center">
                 <p className="text-[10px] text-red-400 uppercase tracking-wide">
-                  Set GEMINI_API_KEY in Vercel → Settings → Environment Variables → Redeploy
+                  Set OPENAI_API_KEY in Vercel → Settings → Environment Variables → Redeploy
                 </p>
               </div>
             )}
