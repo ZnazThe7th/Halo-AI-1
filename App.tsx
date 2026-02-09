@@ -14,6 +14,7 @@ import LoginView from './components/LoginView';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import AIChatPanel from './components/AIChatPanel'; // Import Chat Panel
 import HaloLogo from './components/HaloLogo';
+import { PWAInstallPrompt, OfflineIndicator } from './components/PWAInstallPrompt';
 import RatingPage from './components/RatingPage';
 import { useAuth, getUserEmailFromToken } from './services/authContext';
 import { AppSnapshot } from './services/snapshotMigration';
@@ -1084,6 +1085,10 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* PWA: Offline indicator + Install prompt */}
+      <OfflineIndicator />
+      <PWAInstallPrompt />
     </div>
   );
 };

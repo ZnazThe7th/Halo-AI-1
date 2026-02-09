@@ -102,3 +102,30 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// ── Register Service Worker for PWA ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        console.log('[PWA] Service Worker registered, scope:', registration.scope);
+
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New content is available — optionally notify user
+                console.log('[PWA] New version available. Refresh to update.');
+              }
+            });
+          }
+        });
+      })
+      .catch((error) => {
+        console.warn('[PWA] Service Worker registration failed:', error);
+      });
+  });
+}

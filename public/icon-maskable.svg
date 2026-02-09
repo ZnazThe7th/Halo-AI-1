@@ -1,0 +1,12 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Maskable icons need 10% safe zone on each side, so content in center 80% (51-461) -->
+  <rect width="512" height="512" fill="#000000"/>
+  <!-- Outer ring/glow -->
+  <circle cx="256" cy="256" r="160" stroke="white" stroke-width="7" fill="none" opacity="0.3"/>
+  <!-- Main halo ring -->
+  <circle cx="256" cy="256" r="125" stroke="white" stroke-width="10" fill="none"/>
+  <!-- Inner glow/center -->
+  <circle cx="256" cy="256" r="72" stroke="white" stroke-width="5" fill="none" opacity="0.5"/>
+  <!-- Top accent -->
+  <circle cx="256" cy="131" r="24" fill="white" opacity="0.8"/>
+</svg>

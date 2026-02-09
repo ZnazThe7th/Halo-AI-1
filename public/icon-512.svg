@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="64" fill="#000000"/>
+  <!-- Outer ring/glow -->
+  <circle cx="256" cy="256" r="192" stroke="white" stroke-width="8" fill="none" opacity="0.3"/>
+  <!-- Main halo ring -->
+  <circle cx="256" cy="256" r="150" stroke="white" stroke-width="12" fill="none"/>
+  <!-- Inner glow/center -->
+  <circle cx="256" cy="256" r="86" stroke="white" stroke-width="6" fill="none" opacity="0.5"/>
+  <!-- Top accent -->
+  <circle cx="256" cy="106" r="28" fill="white" opacity="0.8"/>
+</svg>
