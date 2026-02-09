@@ -138,6 +138,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (appt.recurrence.frequency === 'WEEKLY') {
+        // Multi-day recurrence: check if target day of week is in selected days
+        if (appt.recurrence.daysOfWeek && appt.recurrence.daysOfWeek.length > 0) {
+            const targetDayOfWeek = targetDate.getDay();
+            if (!appt.recurrence.daysOfWeek.includes(targetDayOfWeek)) return false;
+            
+            // Check week interval: calculate how many weeks apart
+            const getWeekStart = (d: Date) => {
+                const date = new Date(d);
+                date.setDate(date.getDate() - date.getDay()); // Sunday start
+                date.setHours(0, 0, 0, 0);
+                return date;
+            };
+            const apptWeekStart = getWeekStart(apptDate);
+            const targetWeekStart = getWeekStart(targetDate);
+            const weeksDiff = Math.round((targetWeekStart.getTime() - apptWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+            return weeksDiff >= 0 && weeksDiff % appt.recurrence.interval === 0;
+        }
+        
+        // Legacy: simple weekly (same day of week)
         if (diffDays % 7 !== 0) return false;
         const weeksPassed = diffDays / 7;
         return weeksPassed % appt.recurrence.interval === 0;
@@ -470,11 +489,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       if (editForm.recurrence) {
           setEditForm({ ...editForm, recurrence: undefined });
       } else {
+          // Auto-select the current appointment's day of the week
+          const apptDate = editForm.date ? new Date(editForm.date + 'T00:00:00') : new Date();
+          const currentDay = apptDate.getDay(); // 0=Sun ... 6=Sat
           setEditForm({
               ...editForm,
-              recurrence: { frequency: 'WEEKLY', interval: 1 }
+              recurrence: { frequency: 'WEEKLY', interval: 1, daysOfWeek: [currentDay] }
           });
       }
+  };
+
+  const toggleDayOfWeek = (day: number) => {
+      if (!editForm.recurrence) return;
+      const current = editForm.recurrence.daysOfWeek || [];
+      let updated: number[];
+      if (current.includes(day)) {
+          // Don't allow deselecting the last day
+          if (current.length <= 1) return;
+          updated = current.filter(d => d !== day);
+      } else {
+          updated = [...current, day].sort((a, b) => a - b);
+      }
+      setEditForm({
+          ...editForm,
+          recurrence: { ...editForm.recurrence, daysOfWeek: updated }
+      });
   };
 
   return (
@@ -868,6 +907,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                           Repeats every <span className="font-bold text-orange-500">{selectedAppointment.recurrence.interval}</span> {selectedAppointment.recurrence.frequency.toLowerCase()}(s)
                                           {selectedAppointment.recurrence.endDate && ` until ${selectedAppointment.recurrence.endDate}`}.
                                       </p>
+                                      {selectedAppointment.recurrence.daysOfWeek && selectedAppointment.recurrence.daysOfWeek.length > 0 && (
+                                        <div className="flex gap-1 mt-3">
+                                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayLabel, dayIndex) => {
+                                            const isActive = selectedAppointment.recurrence!.daysOfWeek!.includes(dayIndex);
+                                            return (
+                                              <span
+                                                key={dayLabel}
+                                                className={`px-2 py-1 text-[10px] font-bold uppercase tracking-widest border ${
+                                                  isActive
+                                                    ? 'bg-orange-600/20 border-orange-600 text-orange-400'
+                                                    : 'bg-zinc-800/50 border-zinc-800 text-zinc-700'
+                                                }`}
+                                              >
+                                                {dayLabel}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                   </div>
                               )}
 
@@ -1027,10 +1085,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                   <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Frequency</label>
                                                   <select 
                                                     value={editForm.recurrence.frequency}
-                                                    onChange={e => setEditForm({
-                                                        ...editForm, 
-                                                        recurrence: { ...editForm.recurrence!, frequency: e.target.value as any }
-                                                    })}
+                                                    onChange={e => {
+                                                        const freq = e.target.value as 'WEEKLY' | 'MONTHLY';
+                                                        setEditForm({
+                                                            ...editForm, 
+                                                            recurrence: { 
+                                                                ...editForm.recurrence!, 
+                                                                frequency: freq,
+                                                                // Only keep daysOfWeek for WEEKLY
+                                                                daysOfWeek: freq === 'WEEKLY' ? (editForm.recurrence!.daysOfWeek || []) : undefined
+                                                            }
+                                                        });
+                                                    }}
                                                     className="w-full p-2 bg-black border border-zinc-700 text-white text-sm outline-none focus:border-orange-600"
                                                   >
                                                       <option value="WEEKLY">Weekly</option>
@@ -1038,19 +1104,51 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                   </select>
                                               </div>
                                               <div>
-                                                  <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Every X Weeks/Months</label>
+                                                  <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Every X {editForm.recurrence.frequency === 'WEEKLY' ? 'Week(s)' : 'Month(s)'}</label>
                                                   <input 
                                                     type="number" 
                                                     min="1"
                                                     value={editForm.recurrence.interval}
                                                     onChange={e => setEditForm({
                                                         ...editForm, 
-                                                        recurrence: { ...editForm.recurrence!, interval: parseInt(e.target.value) }
+                                                        recurrence: { ...editForm.recurrence!, interval: parseInt(e.target.value) || 1 }
                                                     })}
                                                     className="w-full p-2 bg-black border border-zinc-700 text-white text-sm outline-none focus:border-orange-600"
                                                   />
                                               </div>
                                           </div>
+
+                                          {/* Day-of-Week Selector (only for WEEKLY) */}
+                                          {editForm.recurrence.frequency === 'WEEKLY' && (
+                                            <div>
+                                              <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">
+                                                Repeat on these days
+                                              </label>
+                                              <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayLabel, dayIndex) => {
+                                                  const isSelected = editForm.recurrence!.daysOfWeek?.includes(dayIndex) || false;
+                                                  return (
+                                                    <button
+                                                      key={dayLabel}
+                                                      type="button"
+                                                      onClick={() => toggleDayOfWeek(dayIndex)}
+                                                      className={`py-2 sm:py-3 text-[10px] sm:text-xs font-bold uppercase tracking-widest border transition-all ${
+                                                        isSelected
+                                                          ? 'bg-orange-600 border-orange-500 text-black'
+                                                          : 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+                                                      }`}
+                                                    >
+                                                      {dayLabel}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                              <p className="text-[9px] sm:text-[10px] text-zinc-600 mt-1">
+                                                Click days to add/remove. The same lesson will appear on all selected days.
+                                              </p>
+                                            </div>
+                                          )}
+
                                           <div>
                                               <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">End Date (Optional)</label>
                                               <input 

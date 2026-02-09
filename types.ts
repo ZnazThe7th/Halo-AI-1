@@ -83,6 +83,7 @@ export interface RecurrenceRule {
   frequency: 'WEEKLY' | 'MONTHLY';
   interval: number; // e.g. 1 = every week, 2 = every other week
   endDate?: string; // ISO Date YYYY-MM-DD
+  daysOfWeek?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat — which days the lesson repeats on
 }
 
 export interface ClientRating {
