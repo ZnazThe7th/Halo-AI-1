@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type, Chat, GenerateContentResponse } from "@google/genai";
-import { X, Send, Sparkles, MessageSquare, Briefcase, User, Calendar, CheckCircle, Loader2 } from 'lucide-react';
+import { X, Send, Sparkles, MessageSquare, Briefcase, User, Calendar, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Appointment, Client, BusinessProfile, AppointmentStatus } from '../types';
 
 interface AIChatPanelProps {
@@ -19,7 +19,12 @@ interface ChatMessage {
     role: 'user' | 'model';
     text: string;
     isTool?: boolean;
+    isError?: boolean;
 }
+
+// --- Gemini Model ---
+// Use a stable, widely available model
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // --- Tool Declarations ---
 
@@ -67,11 +72,22 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
   onAddClient, 
   onAddAppointment 
 }) => {
+  // Check if API key is available (injected at build time via vite.config.ts)
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+  const hasApiKey = !!apiKey && apiKey !== 'undefined' && apiKey !== 'null' && apiKey.trim() !== '';
+
   const [messages, setMessages] = useState<ChatMessage[]>([
-      { id: '0', role: 'model', text: `Hello ${business.ownerName}. I am Halo AI (v5.2). I can analyze your business, add clients, or manage your calendar. How can I help?` }
+      { 
+        id: '0', 
+        role: 'model', 
+        text: hasApiKey 
+          ? `Hello ${business.ownerName || 'there'}. I am Halo AI. I can analyze your business, add clients, or manage your calendar. How can I help?`
+          : `⚠️ Halo AI is not configured. The Gemini API key is missing.\n\nTo enable AI features, add GEMINI_API_KEY to your Vercel Environment Variables and redeploy.`
+      }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<'connected' | 'disconnected' | 'error'>(hasApiKey ? 'disconnected' : 'error');
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Gemini Instance Ref
@@ -79,21 +95,40 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
 
   // Initialize Chat Session
   useEffect(() => {
-    if (!process.env.API_KEY) return;
+    if (!hasApiKey) {
+      console.warn('⚠️ GEMINI_API_KEY not configured - Halo AI is disabled');
+      setAiStatus('error');
+      return;
+    }
     
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    chatSessionRef.current = ai.chats.create({
-      model: 'gemini-3-flash-preview', // Correct model for text chat
-      config: {
-        systemInstruction: `You are Halo, an advanced AI business operating system for a service business named ${business.name}. 
-        You are helpful, professional, and concise. You have access to tools to manage the business.
-        Always confirm when an action (like adding a client) is done.
-        Current Date: ${new Date().toISOString().split('T')[0]}.`,
-        tools: [{ functionDeclarations: [getFinancialStatsTool, addClientTool, bookAppointmentTool] }]
-      }
-    });
-  }, [business.name]);
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      
+      chatSessionRef.current = ai.chats.create({
+        model: GEMINI_MODEL,
+        config: {
+          systemInstruction: `You are Halo, an advanced AI business operating system for a service business named ${business.name || 'the business'}. 
+          Owner name: ${business.ownerName || 'the owner'}.
+          Services offered: ${business.services?.map(s => `${s.name} ($${s.price})`).join(', ') || 'none configured'}.
+          You are helpful, professional, and concise. You have access to tools to manage the business.
+          Always confirm when an action (like adding a client) is done.
+          Current Date: ${new Date().toISOString().split('T')[0]}.
+          Total clients: ${clients.length}. Total appointments: ${appointments.length}.`,
+          tools: [{ functionDeclarations: [getFinancialStatsTool, addClientTool, bookAppointmentTool] }]
+        }
+      });
+      
+      setAiStatus('connected');
+      console.log('✅ Halo AI connected with model:', GEMINI_MODEL);
+    } catch (error) {
+      console.error('Failed to initialize Halo AI:', error);
+      setAiStatus('error');
+      setMessages(prev => [
+        ...prev, 
+        { id: 'init-error', role: 'model', text: `⚠️ Failed to initialize AI: ${error instanceof Error ? error.message : 'Unknown error'}. Check your API key.`, isError: true }
+      ]);
+    }
+  }, [business.name, hasApiKey]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -143,6 +178,9 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
               const { clientName, date, time, serviceName } = functionCall.args;
               // Find service (simple fuzzy match or default)
               const service = business.services.find(s => s.name.toLowerCase().includes(serviceName?.toLowerCase() || '')) || business.services[0];
+              if (!service) {
+                return { error: 'No services configured. Please add a service in Settings first.' };
+              }
               const newAppt: Appointment = {
                   id: Math.random().toString(36).substr(2, 9),
                   clientId: 'ai-generated',
@@ -162,7 +200,17 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !chatSessionRef.current) return;
+    if (!input.trim()) return;
+    
+    // Check if AI is available
+    if (!chatSessionRef.current) {
+      setMessages(prev => [...prev, 
+        { id: Date.now().toString(), role: 'user', text: input },
+        { id: (Date.now() + 1).toString(), role: 'model', text: '⚠️ AI is not available. Make sure GEMINI_API_KEY is set in your Vercel Environment Variables and redeploy.', isError: true }
+      ]);
+      setInput('');
+      return;
+    }
 
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
@@ -201,9 +249,25 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
         const modelText = response.text || "I processed that request.";
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: modelText }]);
 
-    } catch (error) {
-        console.error("Chat Error", error);
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "I'm having trouble connecting to the neural network right now. Please try again." }]);
+    } catch (error: any) {
+        console.error("Chat Error:", error);
+        const errorMsg = error?.message || error?.toString() || 'Unknown error';
+        
+        // Provide helpful error messages
+        let userFriendlyMsg: string;
+        if (errorMsg.includes('API key') || errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('403')) {
+          userFriendlyMsg = "⚠️ Invalid API key. Check that GEMINI_API_KEY is correct in your Vercel Environment Variables.";
+        } else if (errorMsg.includes('not found') || errorMsg.includes('404') || errorMsg.includes('model')) {
+          userFriendlyMsg = `⚠️ Model "${GEMINI_MODEL}" not available. The API returned: ${errorMsg}`;
+        } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
+          userFriendlyMsg = "⚠️ API quota exceeded. Please try again later or check your Google AI billing.";
+        } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+          userFriendlyMsg = "⚠️ Network error. Check your internet connection and try again.";
+        } else {
+          userFriendlyMsg = `⚠️ AI error: ${errorMsg}`;
+        }
+        
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: userFriendlyMsg, isError: true }]);
     } finally {
         setIsLoading(false);
     }
@@ -217,14 +281,24 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-zinc-800 bg-black flex justify-between items-center">
             <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-orange-600 flex items-center justify-center rounded-sm">
-                    <Sparkles className="w-4 h-4 text-black animate-pulse" />
+                <div className={`w-8 h-8 flex items-center justify-center rounded-sm ${aiStatus === 'connected' ? 'bg-orange-600' : 'bg-zinc-700'}`}>
+                    {aiStatus === 'error' ? (
+                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-black animate-pulse" />
+                    )}
                 </div>
                 <div>
                     <h3 className="text-white font-bold text-sm uppercase tracking-wider">Halo AI</h3>
                     <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                        <span className="text-[10px] text-zinc-500 font-mono">GPT-5.2 (Simulated)</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          aiStatus === 'connected' ? 'bg-green-500' : 
+                          aiStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+                        }`}></span>
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                          {aiStatus === 'connected' ? GEMINI_MODEL : 
+                           aiStatus === 'error' ? 'Not configured' : 'Connecting...'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -237,9 +311,11 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-900/50">
             {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] p-3 text-sm leading-relaxed rounded-sm ${
+                    <div className={`max-w-[85%] p-3 text-sm leading-relaxed rounded-sm whitespace-pre-wrap ${
                         msg.role === 'user' 
                         ? 'bg-zinc-800 text-white border border-zinc-700' 
+                        : msg.isError
+                        ? 'bg-red-950/50 text-red-200 border border-red-900/50'
                         : 'bg-orange-600/10 text-zinc-200 border border-orange-900/30'
                     }`}>
                         {msg.text}
@@ -262,10 +338,10 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
                 <input 
                     type="text" 
                     className="flex-1 bg-transparent text-white text-sm outline-none px-2 placeholder-zinc-600"
-                    placeholder="Ask about revenue, add client, or book..."
+                    placeholder={hasApiKey ? "Ask about revenue, add client, or book..." : "AI not configured — API key required"}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                     disabled={isLoading}
                 />
                 <button 
@@ -276,10 +352,20 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
                     <Send className="w-4 h-4" />
                 </button>
             </div>
-            <div className="flex justify-center mt-3 gap-3">
-                <button onClick={() => setInput("How is my revenue this month?")} className="text-[10px] text-zinc-500 hover:text-orange-500 uppercase tracking-wide border border-zinc-800 px-2 py-1 rounded-sm">Analytics</button>
-                <button onClick={() => setInput("Add client John Doe 555-0199")} className="text-[10px] text-zinc-500 hover:text-orange-500 uppercase tracking-wide border border-zinc-800 px-2 py-1 rounded-sm">Add Client</button>
-            </div>
+            {hasApiKey && (
+              <div className="flex justify-center mt-3 gap-3">
+                  <button onClick={() => setInput("How is my revenue this month?")} className="text-[10px] text-zinc-500 hover:text-orange-500 uppercase tracking-wide border border-zinc-800 px-2 py-1 rounded-sm">Analytics</button>
+                  <button onClick={() => setInput("Add client John Doe 555-0199")} className="text-[10px] text-zinc-500 hover:text-orange-500 uppercase tracking-wide border border-zinc-800 px-2 py-1 rounded-sm">Add Client</button>
+                  <button onClick={() => setInput("Book a haircut for tomorrow at 2pm")} className="text-[10px] text-zinc-500 hover:text-orange-500 uppercase tracking-wide border border-zinc-800 px-2 py-1 rounded-sm">Book</button>
+              </div>
+            )}
+            {!hasApiKey && (
+              <div className="mt-3 text-center">
+                <p className="text-[10px] text-red-400 uppercase tracking-wide">
+                  Set GEMINI_API_KEY in Vercel → Settings → Environment Variables → Redeploy
+                </p>
+              </div>
+            )}
         </div>
     </div>
   );

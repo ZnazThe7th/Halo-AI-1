@@ -1,12 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Client, AISummaryResponse } from "../types";
 
+// Stable Gemini model
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
 // Helper to safely get the AI client.
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.error("API_KEY is missing from environment variables.");
-    throw new Error("AI functionality is disabled due to missing API Key.");
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+  if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
+    console.error("GEMINI_API_KEY is missing from environment variables.");
+    throw new Error("AI functionality is disabled — set GEMINI_API_KEY in Vercel Environment Variables and redeploy.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -17,7 +20,7 @@ const getAiClient = () => {
 export const generateClientSummary = async (client: Client): Promise<AISummaryResponse> => {
   try {
     const ai = getAiClient();
-    const modelId = "gemini-3-flash-preview";
+    const modelId = "gemini-2.0-flash";
 
     const prompt = `
       You are an assistant for a busy service professional.
@@ -72,7 +75,7 @@ export const generateClientSummary = async (client: Client): Promise<AISummaryRe
 export const generateFollowUpMessage = async (clientName: string, serviceName: string, notes: string): Promise<string> => {
   try {
     const ai = getAiClient();
-    const modelId = "gemini-3-flash-preview"; // Fast model for text generation
+    const modelId = "gemini-2.0-flash"; // Fast model for text generation
 
     const prompt = `
       Draft a friendly, short SMS text message (max 160 chars) to ${clientName} who just had a ${serviceName}.
@@ -110,7 +113,7 @@ export const suggestReschedulingOptions = async (date: string, conflicts: string
         `;
         
          const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.0-flash",
             contents: prompt,
         });
         
@@ -134,7 +137,7 @@ export const generateWelcomeEmailContent = async (ownerName: string, businessNam
       `;
 
        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-2.0-flash",
           contents: prompt,
       });
 
@@ -157,7 +160,7 @@ export const generateResetCodeEmail = async (email: string, code: string): Promi
         `;
   
          const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.0-flash",
             contents: prompt,
         });
   
