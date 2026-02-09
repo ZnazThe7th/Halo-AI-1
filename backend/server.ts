@@ -18,10 +18,29 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// Initialize Supabase client
+// Initialize Supabase client (graceful fallback if not configured)
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+let supabase: ReturnType<typeof createClient> | null = null;
+try {
+  if (supabaseUrl && supabaseUrl.startsWith('http')) {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('✅ Supabase connected');
+  } else {
+    console.warn('⚠️  Supabase not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in backend/.env');
+  }
+} catch (err) {
+  console.warn('⚠️  Supabase initialization failed:', err);
+}
+
+// Guard helper — returns 503 if Supabase is not available
+function requireDB(res: express.Response): boolean {
+  if (!supabase) {
+    res.status(503).json({ error: 'Database not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in backend/.env' });
+    return false;
+  }
+  return true;
+}
 
 // Session storage (in production, use Redis or database)
 const sessions = new Map<string, { email: string; expires: number }>();
@@ -56,7 +75,7 @@ app.post('/auth/google', async (req, res) => {
       return res.status(401).json({ error: 'Invalid Google token' });
     }
 
-    const userInfo = await response.json();
+    const userInfo: any = await response.json();
     const email = userInfo.email;
 
     if (!email) {
@@ -88,6 +107,7 @@ app.post('/auth/google', async (req, res) => {
 // POST /auth/signup - Create new account with email and password
 app.post('/auth/signup', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const { email, password } = req.body;
     
     if (!email || !email.includes('@')) {
@@ -155,6 +175,7 @@ app.post('/auth/signup', async (req, res) => {
 // POST /auth/email - Authenticate with email and password
 app.post('/auth/email', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const { email, password } = req.body;
     
     if (!email || !email.includes('@')) {
@@ -261,6 +282,7 @@ function parseDeviceFromUA(userAgent: string): { deviceType: string; deviceName:
 }
 
 async function upsertDevice(email: string, fingerprint: string, userAgent: string): Promise<{ id: string; deviceType: string; deviceName: string } | null> {
+  if (!supabase) return null;
   const { deviceType, deviceName } = parseDeviceFromUA(userAgent);
   
   // Try to find existing device
@@ -307,6 +329,7 @@ async function upsertDevice(email: string, fingerprint: string, userAgent: strin
 // POST /save - Save user data to database
 app.post('/save', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const email = verifySession(req);
     
     if (!email) {
@@ -346,6 +369,7 @@ app.post('/save', async (req, res) => {
 // GET /load - Load user data from database
 app.get('/load', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const email = verifySession(req);
     
     if (!email) {
@@ -396,6 +420,7 @@ app.get('/load', async (req, res) => {
 // POST /savepoints - Create a new save point
 app.post('/savepoints', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const email = verifySession(req);
     if (!email) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -451,6 +476,7 @@ app.post('/savepoints', async (req, res) => {
 // GET /savepoints - List all save points for current user (most recent first)
 app.get('/savepoints', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const email = verifySession(req);
     if (!email) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -476,6 +502,7 @@ app.get('/savepoints', async (req, res) => {
 // GET /savepoints/:id - Fetch one save point (with full snapshot)
 app.get('/savepoints/:id', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const email = verifySession(req);
     if (!email) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -500,6 +527,7 @@ app.get('/savepoints/:id', async (req, res) => {
 // DELETE /savepoints/:id - Delete a save point
 app.delete('/savepoints/:id', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const email = verifySession(req);
     if (!email) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -535,6 +563,7 @@ app.post('/logout', (req, res) => {
 // This endpoint can be called by authenticated users for testing, or by cron job with secret
 app.post('/send-daily-emails', async (req, res) => {
   try {
+    if (!requireDB(res)) return;
     const cronSecret = req.headers['x-cron-secret'] || req.body.secret;
     const isTest = req.body.test === true;
     const expectedSecret = process.env.CRON_SECRET || 'your-secret-key-change-in-production';
