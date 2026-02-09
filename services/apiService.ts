@@ -392,33 +392,3 @@ export async function deleteSavePoint(id: string): Promise<ApiResponse<{ success
   }
 }
 
-/**
- * Send test daily email (for testing purposes)
- */
-export async function sendTestDailyEmail(): Promise<ApiResponse<{ message: string; sent: number }>> {
-  try {
-    const response = await fetch(`${API_URL}/send-daily-emails`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies for authentication
-      body: JSON.stringify({ test: true }), // Mark as test
-      signal: AbortSignal.timeout(10000) // 10 second timeout
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Server error' }));
-      return { error: error.error || 'Failed to send test email' };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error: any) {
-    if (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
-      return { error: 'API_UNAVAILABLE' };
-    }
-    console.error('Send test email API error:', error);
-    return { error: 'Failed to send test email' };
-  }
-}

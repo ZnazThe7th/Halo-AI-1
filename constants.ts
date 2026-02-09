@@ -22,5 +22,4 @@ export const DEFAULT_BUSINESS: BusinessProfile = {
   themePreference: 'dark',
   workingHours: { start: "09:00", end: "18:00" },
   services: [],
-  dailyEmailEnabled: false
 };
