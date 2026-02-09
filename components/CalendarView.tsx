@@ -528,42 +528,77 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col relative">
+    <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto h-full flex flex-col relative">
       {/* Header */}
-      <header className="mb-8 flex flex-col xl:flex-row xl:items-end justify-between gap-6 border-b border-zinc-800 pb-6">
-        <div>
-          <h1 className="text-4xl font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-3">
-             <CalendarIcon className="w-8 h-8 text-orange-600" />
-             Master Schedule
+      <header className="mb-4 sm:mb-8 flex flex-col gap-4 sm:gap-6 border-b border-zinc-800 pb-4 sm:pb-6">
+        {/* Title + Navigation Row */}
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-lg sm:text-2xl lg:text-4xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
+             <CalendarIcon className="w-5 h-5 sm:w-8 sm:h-8 text-orange-600 shrink-0" />
+             <span className="hidden sm:inline">Master Schedule</span>
+             <span className="sm:hidden">Schedule</span>
           </h1>
-          <p className="text-zinc-500">Manage bookings and availability.</p>
+
+          {/* Navigation - always visible */}
+          <div className="flex items-center bg-zinc-900 border border-zinc-800">
+              <button onClick={handlePrev} className="p-2 sm:p-3 hover:bg-zinc-800 text-white transition-colors">
+                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              <div className="px-2 sm:px-6 py-2 sm:py-3 border-x border-zinc-800 min-w-[80px] sm:min-w-[140px] text-center">
+                  <span className="text-[10px] sm:text-sm font-bold text-white uppercase tracking-widest">
+                      {viewMode === 'MONTH' ? `${monthName.slice(0,3)} ${year}` : `${currentDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                  </span>
+              </div>
+              <button onClick={handleNext} className="p-2 sm:p-3 hover:bg-zinc-800 text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        {/* Controls Row */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
              {/* View Toggle */}
              <div className="flex bg-zinc-900 border border-zinc-800 p-1">
                  <button 
                     onClick={() => setViewMode('MONTH')}
-                    className={`px-3 py-2 text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${viewMode === 'MONTH' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest flex items-center gap-1 sm:gap-2 transition-colors ${viewMode === 'MONTH' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
                  >
-                     <Grid className="w-4 h-4" /> Month
+                     <Grid className="w-3 h-3 sm:w-4 sm:h-4" /> Month
                  </button>
                  <button 
                     onClick={() => setViewMode('WEEK')}
-                    className={`px-3 py-2 text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${viewMode === 'WEEK' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest flex items-center gap-1 sm:gap-2 transition-colors ${viewMode === 'WEEK' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
                  >
-                     <List className="w-4 h-4" /> Week
+                     <List className="w-3 h-3 sm:w-4 sm:h-4" /> Week
                  </button>
              </div>
 
-             {/* Timezone Selector */}
+             {/* Filter */}
              <div className="relative group">
-                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-4 py-3 cursor-pointer hover:border-zinc-600 transition-colors min-w-[200px]">
+                <div className="flex items-center gap-1 sm:gap-2 bg-zinc-900 border border-zinc-800 px-2 sm:px-4 py-2 sm:py-3 cursor-pointer hover:border-zinc-600 transition-colors">
+                    <Filter className="w-3 h-3 sm:w-4 sm:h-4 text-zinc-500" />
+                    <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as any)}
+                        className="bg-transparent text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer pr-2 sm:pr-4"
+                    >
+                        <option value="ALL" className="text-black">All</option>
+                        <option value={AppointmentStatus.CONFIRMED} className="text-black">Confirmed</option>
+                        <option value={AppointmentStatus.PENDING} className="text-black">Pending</option>
+                        <option value={AppointmentStatus.COMPLETED} className="text-black">Completed</option>
+                        <option value={AppointmentStatus.BLOCKED} className="text-black">Blocked</option>
+                    </select>
+                </div>
+            </div>
+
+             {/* Timezone Selector - hidden on very small screens */}
+             <div className="relative group hidden sm:block">
+                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:border-zinc-600 transition-colors">
                     <Globe className="w-4 h-4 text-orange-600" />
                     <select 
                         value={selectedTimeZone}
                         onChange={(e) => setSelectedTimeZone(e.target.value)}
-                        className="bg-transparent text-white text-xs font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer pr-4 w-full"
+                        className="bg-transparent text-white text-xs font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer pr-4 max-w-[160px]"
                     >
                         {TIME_ZONES.map(tz => (
                             <option key={tz.value} value={tz.value} className="text-black">{tz.label}</option>
@@ -571,59 +606,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                     </select>
                 </div>
             </div>
-
-            {/* Filter */}
-            <div className="relative group">
-                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-4 py-3 cursor-pointer hover:border-zinc-600 transition-colors">
-                    <Filter className="w-4 h-4 text-zinc-500" />
-                    <select 
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as any)}
-                        className="bg-transparent text-white text-xs font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer pr-4"
-                    >
-                        <option value="ALL" className="text-black">All Status</option>
-                        <option value={AppointmentStatus.CONFIRMED} className="text-black">Confirmed</option>
-                        <option value={AppointmentStatus.PENDING} className="text-black">Pending</option>
-                        <option value={AppointmentStatus.COMPLETED} className="text-black">Completed</option>
-                        <option value={AppointmentStatus.BLOCKED} className="text-black">Blocked Time</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Navigation */}
-            <div className="flex items-center bg-zinc-900 border border-zinc-800">
-                <button onClick={handlePrev} className="p-3 hover:bg-zinc-800 text-white transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
-                </button>
-                <div className="px-6 py-3 border-x border-zinc-800 min-w-[140px] text-center">
-                    <span className="text-sm font-bold text-white uppercase tracking-widest">
-                        {viewMode === 'MONTH' ? `${monthName} ${year}` : `${currentDate.toLocaleDateString()} (Week)`}
-                    </span>
-                </div>
-                <button onClick={handleNext} className="p-3 hover:bg-zinc-800 text-white transition-colors">
-                    <ChevronRight className="w-5 h-5" />
-                </button>
-            </div>
         </div>
       </header>
 
       {/* --- MONTH VIEW GRID --- */}
       {viewMode === 'MONTH' && (
-        <div className="flex-1 bg-zinc-900 border border-zinc-800 flex flex-col">
+        <div className="flex-1 bg-zinc-900 border border-zinc-800 flex flex-col overflow-x-auto">
             {/* Days Header */}
-            <div className="grid grid-cols-7 border-b border-zinc-800">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="p-4 text-center border-r border-zinc-800 last:border-r-0">
-                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{day}</span>
+            <div className="grid grid-cols-7 border-b border-zinc-800 min-w-[320px]">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                    <div key={i} className="p-1.5 sm:p-4 text-center border-r border-zinc-800 last:border-r-0">
+                        <span className="text-[9px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                          <span className="sm:hidden">{day}</span>
+                          <span className="hidden sm:inline">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i]}</span>
+                        </span>
                     </div>
                 ))}
             </div>
 
             {/* Days Grid */}
-            <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+            <div className="grid grid-cols-7 flex-1 auto-rows-fr min-w-[320px]">
                 {totalSlots.map((day, index) => {
                     if (day === null) {
-                        return <div key={`blank-${index}`} className="bg-black/40 border-r border-b border-zinc-800 min-h-[120px]"></div>;
+                        return <div key={`blank-${index}`} className="bg-black/40 border-r border-b border-zinc-800 min-h-[60px] sm:min-h-[120px]"></div>;
                     }
 
                     const date = new Date(year, month, day);
@@ -634,32 +639,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                         <div 
                             key={day} 
                             onClick={() => handleCellClick(date)}
-                            className={`border-r border-b border-zinc-800 p-2 min-h-[120px] relative group hover:bg-zinc-800/30 transition-colors cursor-pointer ${index % 7 === 6 ? 'border-r-0' : ''}`}
+                            className={`border-r border-b border-zinc-800 p-1 sm:p-2 min-h-[60px] sm:min-h-[120px] relative group hover:bg-zinc-800/30 transition-colors cursor-pointer ${index % 7 === 6 ? 'border-r-0' : ''}`}
                         >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className={`text-sm font-mono font-bold w-7 h-7 flex items-center justify-center rounded-sm ${isToday ? 'bg-orange-600 text-black' : 'text-zinc-400'}`}>
+                            <div className="flex justify-between items-start mb-0.5 sm:mb-2">
+                                <span className={`text-[10px] sm:text-sm font-mono font-bold w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-sm ${isToday ? 'bg-orange-600 text-black' : 'text-zinc-400'}`}>
                                     {day}
                                 </span>
                                 {dayAppointments.length > 0 && (
-                                    <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter">{dayAppointments.length} Items</span>
+                                    <span className="text-[8px] sm:text-[10px] font-bold text-zinc-600">{dayAppointments.length}</span>
                                 )}
                             </div>
                             
-                            <div className="space-y-1">
-                                {dayAppointments.map(appt => {
+                            <div className="space-y-0.5 sm:space-y-1">
+                                {dayAppointments.slice(0, window.innerWidth < 640 ? 2 : 5).map(appt => {
                                     const isBlocked = appt.status === AppointmentStatus.BLOCKED;
                                     return (
                                         <div 
                                             key={appt.id} 
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
-                                                // Get the latest appointment data from the appointments prop
                                                 const latestAppt = appointments.find(a => a.id === appt.id) || appt;
                                                 setSelectedAppointment({ ...latestAppt, displayTime: appt.displayTime });
                                                 setIsEditing(false); 
                                                 setIsNew(false); 
                                             }}
-                                            className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wide border-l-2 truncate cursor-pointer hover:brightness-110 transition-all ${
+                                            className={`px-1 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] uppercase font-bold tracking-wide border-l-2 truncate cursor-pointer hover:brightness-110 transition-all ${
                                                 isBlocked ? 'bg-zinc-900/50 border-zinc-600 text-zinc-400 border-dashed italic' :
                                                 appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-800 border-emerald-500 text-white' : 
                                                 appt.status === AppointmentStatus.PENDING ? 'bg-zinc-800 border-yellow-500 text-yellow-500' :
@@ -668,19 +672,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                 'bg-zinc-800 border-zinc-500 text-zinc-500'
                                             }`}
                                         >
-                                            {appt.recurrence && <Repeat className="inline w-3 h-3 mr-1 text-orange-500" />}
-                                            {isBlocked && <Ban className="inline w-3 h-3 mr-1 text-zinc-500" />}
-                                            <span className="mr-1 opacity-75">{appt.displayTime}</span>
-                                            {appt.clientNames && appt.clientNames.length > 1 
-                                              ? `${appt.clientNames.length} clients` 
-                                              : (appt.clientName || 'No client name')}
+                                            {appt.recurrence && <Repeat className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-orange-500" />}
+                                            {isBlocked && <Ban className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-zinc-500" />}
+                                            <span className="mr-0.5 opacity-75 hidden sm:inline">{appt.displayTime}</span>
+                                            <span className="sm:hidden">{appt._sortTime?.split(':')[0]}:{appt._sortTime?.split(':')[1]}</span>
+                                            <span className="hidden sm:inline">
+                                              {appt.clientNames && appt.clientNames.length > 1 
+                                                ? ` ${appt.clientNames.length} clients` 
+                                                : ` ${appt.clientName || ''}`}
+                                            </span>
                                         </div>
                                     );
                                 })}
+                                {dayAppointments.length > (window.innerWidth < 640 ? 2 : 5) && (
+                                  <div className="text-[8px] sm:text-[10px] text-zinc-500 font-bold text-center">
+                                    +{dayAppointments.length - (window.innerWidth < 640 ? 2 : 5)} more
+                                  </div>
+                                )}
                             </div>
 
-                            {/* Hover Add Icon */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                            {/* Hover Add Icon (desktop only) */}
+                            <div className="absolute inset-0 items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none hidden sm:flex">
                                 <Plus className="w-8 h-8 text-zinc-700" />
                             </div>
                         </div>
@@ -693,15 +705,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
       {/* --- WEEK VIEW GRID --- */}
       {viewMode === 'WEEK' && (
           <div className="flex-1 bg-zinc-900 border border-zinc-800 flex flex-col overflow-auto">
-              <div className="flex flex-1 min-w-[800px]">
+              <div className="flex flex-1 min-w-[500px]">
                   {/* Time Axis */}
-                  <div className="w-16 border-r border-zinc-800 flex-shrink-0 bg-zinc-950">
+                  <div className="w-12 sm:w-16 border-r border-zinc-800 flex-shrink-0 bg-zinc-950">
                       <div className="h-10 border-b border-zinc-800"></div> {/* Header spacer */}
-                      {Array.from({length: 10}).map((_, i) => { // 9 AM to 6 PM
-                          const hour = i + 9;
+                      {Array.from({length: 16}).map((_, i) => { // 6 AM to 10 PM
+                          const hour = i + 6;
                           return (
-                            <div key={hour} className="h-24 border-b border-zinc-800 text-[10px] text-zinc-500 font-mono text-right pr-2 pt-2">
-                                {hour}:00
+                            <div key={hour} className="h-24 border-b border-zinc-800 text-[10px] text-zinc-500 font-mono text-right pr-1 sm:pr-2 pt-2">
+                                {hour > 12 ? hour - 12 : hour}{hour >= 12 ? 'p' : 'a'}
                             </div>
                           )
                       })}
@@ -713,16 +725,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                        const dayAppointments = getAppointmentsForDate(date);
                        
                        return (
-                           <div key={i} className="flex-1 border-r border-zinc-800 min-w-[120px] relative bg-zinc-900/50">
+                           <div key={i} className="flex-1 border-r border-zinc-800 min-w-[56px] sm:min-w-[90px] relative bg-zinc-900/50">
                                {/* Column Header */}
-                               <div className={`h-10 border-b border-zinc-800 flex items-center justify-center gap-2 ${isToday ? 'bg-orange-600/10' : ''}`}>
-                                    <span className="text-xs font-bold uppercase text-zinc-500">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]}</span>
-                                    <span className={`text-sm font-bold font-mono ${isToday ? 'text-orange-500' : 'text-white'}`}>{date.getDate()}</span>
+                               <div className={`h-10 border-b border-zinc-800 flex items-center justify-center gap-0.5 sm:gap-2 ${isToday ? 'bg-orange-600/10' : ''}`}>
+                                    <span className="text-[9px] sm:text-xs font-bold uppercase text-zinc-500">{['S','M','T','W','T','F','S'][date.getDay()]}</span>
+                                    <span className={`text-[10px] sm:text-sm font-bold font-mono ${isToday ? 'text-orange-500' : 'text-white'}`}>{date.getDate()}</span>
                                </div>
 
                                {/* Time Slots Background */}
-                               <div className="relative h-[960px]"> {/* 10 hours * 96px height */}
-                                   {Array.from({length: 10}).map((_, idx) => (
+                               <div className="relative h-[1536px]"> {/* 16 hours * 96px height */}
+                                   {Array.from({length: 16}).map((_, idx) => (
                                        <div 
                                             key={idx} 
                                             onClick={(e) => {
@@ -730,7 +742,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                 const rect = e.currentTarget.getBoundingClientRect();
                                                 const y = e.clientY - rect.top; // pixel within cell
                                                 const minAdded = y > 48 ? 30 : 0;
-                                                handleCellClick(date, `${idx+9}:${minAdded === 0 ? '00' : '30'}`);
+                                                handleCellClick(date, `${String(idx+6).padStart(2,'0')}:${minAdded === 0 ? '00' : '30'}`);
                                             }}
                                             className="h-24 border-b border-zinc-800/50 hover:bg-zinc-800 transition-colors cursor-pointer"
                                        ></div>
@@ -739,12 +751,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                    {/* Appointments */}
                                    {dayAppointments.map(appt => {
                                        const [h, m] = appt._sortTime.split(':').map(Number);
-                                       if (h < 9 || h > 18) return null; // Out of view for MVP
+                                       if (h < 6 || h > 22) return null; // Out of visible range
                                        
-                                       // Calculate positions
-                                       const startMin = (h - 9) * 60 + m;
-                                       const top = (startMin / (10 * 60)) * 100; // % of height
-                                       const height = (appt._duration / (10 * 60)) * 100; // % of height
+                                       // Calculate positions (6AM = 0, 10PM = end)
+                                       const startMin = (h - 6) * 60 + m;
+                                       const top = (startMin / (16 * 60)) * 100; // % of height
+                                       const height = (appt._duration / (16 * 60)) * 100; // % of height
                                        
                                        const isBlocked = appt.status === AppointmentStatus.BLOCKED;
 
@@ -759,7 +771,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                     setIsEditing(false); 
                                                     setIsNew(false); 
                                                 }}
-                                                className={`absolute inset-x-1 rounded-sm p-2 text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
+                                                className={`absolute inset-x-0.5 sm:inset-x-1 rounded-sm p-0.5 sm:p-2 text-[8px] sm:text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
                                                     isBlocked ? 'bg-zinc-900 border-zinc-600 text-zinc-400 border-dashed opacity-80' :
                                                     appt.status === AppointmentStatus.CANCELLED ? 'bg-red-900/80 border-red-500 text-red-100 line-through opacity-70' :
                                                     appt.status === AppointmentStatus.CONFIRMED ? 'bg-emerald-900/80 border-emerald-500 text-white' :

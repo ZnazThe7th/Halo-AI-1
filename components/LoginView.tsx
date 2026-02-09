@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Sparkles, Mail, Lock, User, Briefcase, KeyRound, CheckCircle, ArrowLeft, X } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { generateResetCodeEmail } from '../services/geminiService';
@@ -23,6 +23,16 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   const [mode, setMode] = useState<LoginMode>('signin');
   const [isLoading, setIsLoading] = useState(false);
   
+  // Safety timeout ref for Google login - prevents infinite loading spinner
+  const googleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup safety timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (googleTimeoutRef.current) clearTimeout(googleTimeoutRef.current);
+    };
+  }, []);
+  
   // Notification State
   const [notification, setNotification] = useState<{title: string, message: string} | null>(null);
 
@@ -45,8 +55,16 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
     }
   }, [notification]);
 
+  // Helper to stop loading and clear safety timeout
+  const stopLoading = () => {
+    if (googleTimeoutRef.current) {
+      clearTimeout(googleTimeoutRef.current);
+      googleTimeoutRef.current = null;
+    }
+    setIsLoading(false);
+  };
+
   const handleGoogleSuccess = async (tokenResponse: any) => {
-    setIsLoading(true);
     try {
       // IMPORTANT: Save access_token immediately to prevent auth loops
       // useGoogleLogin() returns access_token (not credential)
@@ -60,14 +78,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
       // Use the backend's normalized (lowercased) email when available
       let userEmail: string | null = authResult.data?.email?.toLowerCase().trim() || null;
       let userName: string = '';
-      let backendAvailable = true;
       
       if (authResult.error === 'API_UNAVAILABLE') {
         console.warn('Backend API not available, using localStorage-only mode');
-        backendAvailable = false;
       } else if (authResult.error || !authResult.data) {
         console.warn('API authentication failed:', authResult.error);
-        backendAvailable = false;
         // Show a warning but don't block login
         setNotification({
           title: "Sync Warning",
@@ -90,7 +105,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
         console.warn('Failed to fetch Google user info:', e);
       }
       
-      setIsLoading(false);
+      stopLoading();
       
       // Small delay to ensure auth state propagates before calling callbacks
       setTimeout(() => {
@@ -104,7 +119,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
       }, 200);
     } catch (error) {
       console.error('Google authentication error:', error);
-      setIsLoading(false);
+      stopLoading();
       setNotification({
         title: "Authentication Error",
         message: error instanceof Error ? error.message : "Failed to authenticate with Google. Please try again."
@@ -113,7 +128,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
   };
 
   const handleGoogleError = (error: any) => {
-    setIsLoading(false);
+    stopLoading();
     console.error('Google OAuth error:', error);
     let errorMessage = "Google sign-in was cancelled or failed.";
     
@@ -151,6 +166,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignup }) => {
       return;
     }
     setIsLoading(true);
+    
+    // Safety timeout: if Google auth flow doesn't complete within 25s, stop loading
+    // This handles cases where popup is blocked, hangs, or callback never fires
+    if (googleTimeoutRef.current) clearTimeout(googleTimeoutRef.current);
+    googleTimeoutRef.current = setTimeout(() => {
+      googleTimeoutRef.current = null;
+      setIsLoading(false);
+      setNotification({
+        title: "Sign-In Timeout",
+        message: "Google sign-in took too long. Check that popups aren't blocked and try again."
+      });
+    }, 25000);
+    
     googleLogin();
   };
 
