@@ -28,14 +28,38 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     // Basic stats logic
     const today = new Date().toISOString().split('T')[0];
-    const todayAppointments = appointments.filter(a => a.date === today).sort((a,b) => a.time.localeCompare(b.time));
-    const upcomingAppointments = appointments.filter(a => a.date > today).sort((a,b) => a.date.localeCompare(b.date));
+
+    // Build a set of overridden date+time+service+client keys from completed/cancelled instances
+    // so we can filter out recurring parents that have been individually resolved
+    const overriddenKeys = useMemo(() => {
+        const keys = new Set<string>();
+        appointments.forEach(appt => {
+            if (!appt.recurrence && (appt.id.endsWith('_completed') || appt.id.endsWith('_cancelled'))) {
+                keys.add(`${appt.date}_${appt.time}_${appt.serviceId}_${appt.clientName}`);
+            }
+        });
+        return keys;
+    }, [appointments]);
+
+    // Check if a recurring parent should be hidden because a completed/cancelled instance exists
+    const isOverriddenRecurring = (appt: Appointment): boolean => {
+        if (!appt.recurrence) return false;
+        return overriddenKeys.has(`${appt.date}_${appt.time}_${appt.serviceId}_${appt.clientName}`);
+    };
+
+    const todayAppointments = appointments
+        .filter(a => a.date === today && !isOverriddenRecurring(a))
+        .sort((a,b) => a.time.localeCompare(b.time));
+    const upcomingAppointments = appointments
+        .filter(a => a.date > today && !isOverriddenRecurring(a))
+        .sort((a,b) => a.date.localeCompare(b.date));
     const pastAppointments = useMemo(() => {
         // "Past" = completed OR any appointment before today (excluding blocked)
         return appointments
             .filter(a =>
                 a.status !== AppointmentStatus.BLOCKED &&
-                (a.status === AppointmentStatus.COMPLETED || a.date < today)
+                (a.status === AppointmentStatus.COMPLETED || a.date < today) &&
+                !isOverriddenRecurring(a)
             )
             .sort((a, b) => {
                 // newest first
@@ -43,7 +67,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 if (dateCmp !== 0) return dateCmp;
                 return b.time.localeCompare(a.time);
             });
-    }, [appointments, today]);
+    }, [appointments, today, overriddenKeys]);
     
     // Helper function to calculate appointment price
     const getAppointmentPrice = (appt: Appointment): number => {

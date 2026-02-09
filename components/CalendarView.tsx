@@ -210,7 +210,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                  if (baseDateStr === targetDateStr) {
                      // If this is a recurring appointment, check if there's already a completed/cancelled 
                      // instance for this specific date (don't show recurring parent if so)
-                     if (appt.recurrence && appt.date !== targetDateStr) {
+                     if (appt.recurrence) {
                          const key = `${appt.time}_${appt.serviceId}_${appt.clientName}`;
                          const overrides = overriddenDates.get(key);
                          if (overrides && overrides.has(targetDateStr)) {
