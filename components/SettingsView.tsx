@@ -142,7 +142,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
             success: false,
             message: errorDetail
               ? `Email could not be sent: ${errorDetail}`
-              : 'Email service not configured. Add EMAIL_API_URL in your Vercel environment variables (e.g. Resend, SendGrid endpoint).'
+              : 'Email service not configured. Add RESEND_API_KEY to your Vercel environment variables. Get a free key at resend.com.'
           });
         }
       }

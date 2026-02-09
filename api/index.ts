@@ -530,17 +530,44 @@ app.post('/api/send-daily-emails', async (req, res) => {
 
 async function sendDailyEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<boolean> {
   try {
-    const emailApiUrl = process.env.EMAIL_API_URL;
-    if (!emailApiUrl) {
-      console.warn('EMAIL_API_URL not configured, skipping email send');
-      return false;
+    // Priority 1: Use Resend API directly (recommended for Vercel)
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${resendKey}`
+        },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM || 'Halo Assistant <onboarding@resend.dev>',
+          to: [to],
+          subject,
+          html
+        })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        console.error('Resend API error:', response.status, err);
+        return false;
+      }
+      console.log(`✅ Email sent via Resend to ${to}`);
+      return true;
     }
-    const response = await fetch(emailApiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, html, from: 'Halo Assistant <noreply@halo.app>' })
-    });
-    return response.ok;
+
+    // Priority 2: Use generic EMAIL_API_URL
+    const emailApiUrl = process.env.EMAIL_API_URL;
+    if (emailApiUrl) {
+      const response = await fetch(emailApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, html, from: 'Halo Assistant <noreply@halo.app>' })
+      });
+      return response.ok;
+    }
+
+    console.warn('No email service configured. Set RESEND_API_KEY or EMAIL_API_URL.');
+    return false;
   } catch (error) {
     console.error('Error sending daily email:', error);
     return false;
@@ -591,7 +618,7 @@ function generateDailyEmailHTML(
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', supabase: !!supabase, emailConfigured: !!process.env.EMAIL_API_URL, timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', supabase: !!supabase, emailService: process.env.RESEND_API_KEY ? 'resend' : (process.env.EMAIL_API_URL ? 'custom' : 'none'), timestamp: new Date().toISOString() });
 });
 
 // Export for Vercel
