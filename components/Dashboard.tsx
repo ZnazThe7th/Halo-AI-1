@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Appointment, BusinessProfile, AppointmentStatus, ClientRating } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { Calendar, Clock, DollarSign, MoreVertical, Star, ArrowRight, CheckCircle, TrendingUp, Trash2, Edit3, X, Save, Ban, XCircle } from 'lucide-react';
-import { formatTime } from '../constants';
+import { formatTime, toLocalDateStr } from '../constants';
 
 interface DashboardProps {
   business: BusinessProfile;
@@ -27,7 +27,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToCalendar
 }) => {
     // Basic stats logic
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date string (not UTC) to avoid off-by-one in evening hours
+    const today = toLocalDateStr();
 
     // --- Recurrence helpers (must match CalendarView logic) ---
     const parseLocalDate = (dateStr: string): Date => new Date(dateStr + 'T12:00:00');
@@ -218,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(todayDate.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = toLocalDateStr(d);
             const dayName = days[d.getDay()];
             
             // Count actual bookings for this day

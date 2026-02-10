@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Appointment, AppointmentStatus, BusinessProfile, RecurrenceRule } from '../types';
 import { ChevronLeft, ChevronRight, Filter, Calendar as CalendarIcon, Clock, X, Edit3, User, Repeat, Save, Globe, Plus, CheckCircle, Ban, Lock, List, Grid, XCircle } from 'lucide-react';
-import { formatTime } from '../constants';
+import { formatTime, toLocalDateStr } from '../constants';
 
 interface CalendarViewProps {
   appointments: Appointment[];
@@ -92,10 +92,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const totalSlots = [...blanks, ...days];
 
-  // Helper to get formatted date string
-  const getDateString = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
+  // Helper to get formatted date string — delegates to shared local-time helper
+  const getDateString = (date: Date): string => toLocalDateStr(date);
 
   // Helper for Week View Dates
   const getWeekDates = () => {
@@ -179,12 +177,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   const getAppointmentsForDate = (date: Date) => {
     const targetDateStr = getDateString(date);
 
-    // Create candidates for "Base Date" (UTC) checking.
-    const candidates = [
-        targetDateStr,
-        new Date(date.getTime() - 86400000).toISOString().split('T')[0],
-        new Date(date.getTime() + 86400000).toISOString().split('T')[0]
-    ];
+    // Only check the target date (local time).
+    // Previous ±1-day UTC hack removed — getDateString now uses local time.
+    const candidates = [targetDateStr];
 
     const dayAppointments: (Appointment & { displayTime: string; _sortTime: string; _duration: number })[] = [];
     const seenIds = new Set<string>();

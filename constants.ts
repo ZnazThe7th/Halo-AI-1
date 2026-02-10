@@ -1,6 +1,18 @@
 
 import { BusinessProfile } from './types';
 
+/**
+ * Convert a Date to a YYYY-MM-DD string in LOCAL time (not UTC).
+ * Using toISOString().split('T')[0] is WRONG because toISOString
+ * converts to UTC first, which shifts the date forward in US evening hours.
+ */
+export const toLocalDateStr = (date: Date = new Date()): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export const formatTime = (time24: string): string => {
   if (!time24) return '';
   const [hours, minutes] = time24.split(':');

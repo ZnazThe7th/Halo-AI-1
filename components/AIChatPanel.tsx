@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import OpenAI from 'openai';
 import { X, Send, Sparkles, Loader2, AlertTriangle } from 'lucide-react';
 import { Appointment, Client, BusinessProfile, AppointmentStatus } from '../types';
+import { toLocalDateStr } from '../constants';
 
 interface AIChatPanelProps {
   isOpen: boolean;
@@ -125,7 +126,7 @@ Owner: ${business.ownerName || 'Not set'}.
 Services: ${business.services?.map(s => `${s.name} ($${s.price}${s.pricePerPerson ? '/person' : ''})`).join(', ') || 'None configured'}.
 Monthly revenue goal: $${business.monthlyRevenueGoal || 0}.
 Total clients: ${clients.length}. Total appointments: ${appointments.length}.
-Current date: ${new Date().toISOString().split('T')[0]}.
+Current date: ${toLocalDateStr()}.
 
 You are helpful, professional, and concise. You have access to tools to manage the business.
 Always confirm when an action (like adding a client or booking) is done.

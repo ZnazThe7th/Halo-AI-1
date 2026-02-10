@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Appointment, AppointmentStatus, BusinessProfile, Expense, BonusEntry } from '../types';
 import { DollarSign, TrendingUp, PieChart, Plus, Trash2, Calculator, Briefcase, Download, FileText, CheckSquare, Square, Printer, Target, Edit3, RotateCcw, Gift, Save, X } from 'lucide-react';
+import { toLocalDateStr } from '../constants';
 
 interface MyBusinessViewProps {
   business: BusinessProfile;
@@ -60,7 +61,7 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
   const [newBonus, setNewBonus] = useState<Partial<BonusEntry>>({
     description: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0]
+    date: toLocalDateStr()
   });
 
   // Bonus Edit State
@@ -138,7 +139,7 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
       id: Math.random().toString(36).substr(2, 9),
       name: newExpense.name,
       amount: Number(newExpense.amount),
-      date: new Date().toISOString().split('T')[0],
+      date: toLocalDateStr(),
       category: newExpense.category as any || 'Other'
     };
 
@@ -167,11 +168,11 @@ const MyBusinessView: React.FC<MyBusinessViewProps> = ({
       id: Math.random().toString(36).substr(2, 9),
       description: newBonus.description!,
       amount: Number(newBonus.amount),
-      date: newBonus.date || new Date().toISOString().split('T')[0]
+      date: newBonus.date || toLocalDateStr()
     };
 
     if (onAddBonus) onAddBonus(entry);
-    setNewBonus({ description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+    setNewBonus({ description: '', amount: 0, date: toLocalDateStr() });
     setShowBonusForm(false);
   };
 

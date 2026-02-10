@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Client, AISummaryResponse, Appointment, BusinessProfile, AppointmentStatus, ClientRating } from '../types';
 import { generateClientSummary, generateFollowUpMessage } from '../services/geminiService';
 import { ArrowLeft, Sparkles, MessageSquare, History, Phone, Mail, Send, Check, Star, Calendar } from 'lucide-react';
-import { formatTime } from '../constants';
+import { formatTime, toLocalDateStr } from '../constants';
 
 interface ClientProfileProps {
   client: Client;
@@ -88,7 +88,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client, appointments, bus
   const handleAddNote = () => {
       if (!newNote.trim()) return;
       
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = toLocalDateStr();
       const noteEntry = `${dateStr}: ${newNote}`;
       
       const updatedClient = {
