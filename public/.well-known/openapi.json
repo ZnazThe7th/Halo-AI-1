@@ -1,0 +1,351 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Halo Assistant API",
+    "description": "AI-powered business management API for service professionals. Manage appointments, clients, and track earnings. Authenticate with a Bearer API key generated from the Halo Assistant Settings page.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Halo Assistant"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://halo-ai-1.vercel.app",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/ai/schedule": {
+      "get": {
+        "operationId": "getSchedule",
+        "summary": "Get appointment schedule",
+        "description": "Returns all appointments for a specific date. Defaults to today if no date is provided.",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "Date in YYYY-MM-DD format. Defaults to today.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-02-10"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of appointments for the specified date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "date": { "type": "string", "description": "The date queried" },
+                    "appointments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "date": { "type": "string" },
+                          "time": { "type": "string", "description": "Time in HH:MM 24-hour format" },
+                          "clientName": { "type": "string" },
+                          "service": { "type": "string" },
+                          "duration": { "type": "integer", "description": "Duration in minutes" },
+                          "status": { "type": "string", "enum": ["CONFIRMED", "PENDING", "COMPLETED", "CANCELLED", "BLOCKED"] },
+                          "notes": { "type": "string" }
+                        }
+                      }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/clients": {
+      "get": {
+        "operationId": "listClients",
+        "summary": "List all clients",
+        "description": "Returns all clients for the business. Optionally filter by name or email with a search query.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search clients by name or email",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of clients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "email": { "type": "string" },
+                          "phone": { "type": "string" },
+                          "preferences": { "type": "string" },
+                          "lastVisit": { "type": "string", "nullable": true }
+                        }
+                      }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addClient",
+        "summary": "Add a new client",
+        "description": "Creates a new client in the business's client list.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "description": "Client's full name" },
+                  "clientEmail": { "type": "string", "description": "Client's email address" },
+                  "phone": { "type": "string", "description": "Client's phone number" },
+                  "preferences": { "type": "string", "description": "Client preferences or notes" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Client created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "client": { "type": "object" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/appointments": {
+      "post": {
+        "operationId": "bookAppointment",
+        "summary": "Book a new appointment",
+        "description": "Creates a new appointment. The service is matched by name (partial match). If the client exists, their ID is linked automatically.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["clientName", "date", "time"],
+                "properties": {
+                  "clientName": { "type": "string", "description": "Name of the client" },
+                  "serviceName": { "type": "string", "description": "Name of the service (partial match). If omitted, uses the first available service." },
+                  "date": { "type": "string", "format": "date", "description": "Appointment date in YYYY-MM-DD format" },
+                  "time": { "type": "string", "description": "Appointment time in HH:MM 24-hour format (e.g. 14:30)" },
+                  "notes": { "type": "string", "description": "Optional notes for the appointment" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Appointment booked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "appointment": { "type": "object" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/appointments/{id}": {
+      "patch": {
+        "operationId": "updateAppointmentStatus",
+        "summary": "Update appointment status",
+        "description": "Mark an appointment as completed, cancelled, confirmed, pending, or blocked.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The appointment ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["CONFIRMED", "PENDING", "COMPLETED", "CANCELLED", "BLOCKED"],
+                    "description": "The new status for the appointment"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Appointment updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "appointment": { "type": "object" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/business": {
+      "get": {
+        "operationId": "getBusinessStats",
+        "summary": "Get business profile and statistics",
+        "description": "Returns the business profile (name, services, working hours) and key stats (total clients, appointments, revenue, expenses, net earnings).",
+        "responses": {
+          "200": {
+            "description": "Business profile and statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "business": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "owner": { "type": "string" },
+                        "category": { "type": "string" },
+                        "workingHours": { "type": "object" },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": { "type": "string" },
+                              "price": { "type": "number" },
+                              "duration": { "type": "integer" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "totalClients": { "type": "integer" },
+                        "totalAppointments": { "type": "integer" },
+                        "completedAppointments": { "type": "integer" },
+                        "grossRevenue": { "type": "number" },
+                        "bonusIncome": { "type": "number" },
+                        "totalExpenses": { "type": "number" },
+                        "taxRate": { "type": "number" },
+                        "estimatedTax": { "type": "number" },
+                        "netEarnings": { "type": "number" },
+                        "monthlyGoal": { "type": "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/earnings": {
+      "get": {
+        "operationId": "getEarningsBreakdown",
+        "summary": "Get detailed financial breakdown",
+        "description": "Returns revenue broken down by service, expenses by category, bonus entries, and totals.",
+        "responses": {
+          "200": {
+            "description": "Financial breakdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revenueByService": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "total": { "type": "number" },
+                          "count": { "type": "integer" }
+                        }
+                      }
+                    },
+                    "expensesByCategory": { "type": "object" },
+                    "bonusEntries": { "type": "array" },
+                    "totalExpenses": { "type": "number" },
+                    "totalBonus": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key generated from Halo Assistant Settings. Format: halo_<key>"
+      }
+    }
+  }
+}
