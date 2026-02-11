@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition, useCallback } from 'react';
 import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating, AppointmentStatus, BonusEntry } from './types';
 import { DEFAULT_BUSINESS } from './constants';
 import Dashboard from './components/Dashboard';
@@ -29,7 +29,16 @@ const App: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+  const [, startTransition] = useTransition();
+
+  // Navigate to a view without blocking the main thread (fixes INP on nav buttons)
+  const navigateTo = useCallback((view: ViewState) => {
+    setIsMobileMenuOpen(false);
+    startTransition(() => {
+      setCurrentView(view);
+    });
+  }, []);
+
   // App State
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(DEFAULT_BUSINESS);
   const [clients, setClients] = useState<Client[]>([]);
@@ -665,7 +674,7 @@ const App: React.FC = () => {
       return (
         <BookingForm 
             business={businessProfile} 
-            onBackToAdmin={() => setCurrentView(ViewState.DASHBOARD)} 
+            onBackToAdmin={() => navigateTo(ViewState.DASHBOARD)} 
             onBookAppointment={handlePublicBooking}
         />
       );
@@ -762,11 +771,11 @@ const App: React.FC = () => {
             business={businessProfile} 
             appointments={appointments}
             ratings={ratings}
-            onViewAllAppointments={() => setCurrentView(ViewState.CLIENTS)} 
+            onViewAllAppointments={() => navigateTo(ViewState.CLIENTS)} 
             onUpdateAppointment={handleUpdateAppointment}
             onAddAppointment={handleAddAppointment}
             onRemoveAppointment={handleRemoveAppointment}
-            onNavigateToCalendar={() => setCurrentView(ViewState.CALENDAR)}
+            onNavigateToCalendar={() => navigateTo(ViewState.CALENDAR)}
         />;
     }
   };
@@ -788,10 +797,7 @@ const App: React.FC = () => {
       }`}>
         <div className="p-4 lg:p-8 flex items-center justify-between gap-3">
           <button
-            onClick={() => {
-              setCurrentView(ViewState.DASHBOARD);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => navigateTo(ViewState.DASHBOARD)}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
             {businessProfile.avatarUrl ? (
@@ -813,10 +819,7 @@ const App: React.FC = () => {
 
         <nav className="flex-1 mt-4 lg:mt-8 px-2 lg:px-4 space-y-1 lg:space-y-2">
           <button 
-            onClick={() => {
-              setCurrentView(ViewState.DASHBOARD);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => navigateTo(ViewState.DASHBOARD)}
             className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.DASHBOARD ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
             <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
@@ -824,11 +827,7 @@ const App: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => {
-              setSelectedClient(null);
-              setCurrentView(ViewState.CLIENTS);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => { setSelectedClient(null); navigateTo(ViewState.CLIENTS); }}
             className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.CLIENTS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
             <Users className="w-5 h-5 flex-shrink-0" />
@@ -836,10 +835,7 @@ const App: React.FC = () => {
           </button>
 
           <button 
-            onClick={() => {
-              setCurrentView(ViewState.CALENDAR);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => navigateTo(ViewState.CALENDAR)}
             className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.CALENDAR ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
             <CalendarIcon className="w-5 h-5 flex-shrink-0" />
@@ -847,10 +843,7 @@ const App: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => {
-              setCurrentView(ViewState.MY_BUSINESS);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => navigateTo(ViewState.MY_BUSINESS)}
             className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.MY_BUSINESS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
             <Briefcase className="w-5 h-5 flex-shrink-0" />
@@ -858,10 +851,7 @@ const App: React.FC = () => {
           </button>
 
           <button 
-            onClick={() => {
-              setCurrentView(ViewState.SAVE_POINTS);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => navigateTo(ViewState.SAVE_POINTS)}
             className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.SAVE_POINTS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
             <HardDrive className="w-5 h-5 flex-shrink-0" />
@@ -869,10 +859,7 @@ const App: React.FC = () => {
           </button>
 
           <button 
-            onClick={() => {
-              setCurrentView(ViewState.SETTINGS);
-              setIsMobileMenuOpen(false);
-            }}
+            onClick={() => navigateTo(ViewState.SETTINGS)}
             className={`w-full flex items-center gap-3 lg:gap-4 p-3 lg:p-4 transition-all duration-200 border-l-2 ${currentView === ViewState.SETTINGS ? 'border-orange-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
@@ -883,10 +870,7 @@ const App: React.FC = () => {
         {/* Public Booking Actions */}
         <div className="p-4 lg:p-6 border-t border-zinc-200 dark:border-zinc-800 space-y-2 lg:space-y-3">
              <button 
-                onClick={() => {
-                  setCurrentView(ViewState.BOOKING_PUBLIC);
-                  setIsMobileMenuOpen(false);
-                }}
+                onClick={() => navigateTo(ViewState.BOOKING_PUBLIC)}
                 className="w-full flex items-center justify-center lg:justify-start gap-3 p-3 bg-orange-600 text-black hover:bg-white transition-colors uppercase font-bold text-xs tracking-widest shadow-lg"
              >
                 <Globe className="w-4 h-4 flex-shrink-0" />
@@ -898,10 +882,7 @@ const App: React.FC = () => {
 
       {/* Mobile Logo Button (Top Left) */}
       <button
-        onClick={() => {
-          setCurrentView(ViewState.DASHBOARD);
-          setIsMobileMenuOpen(false);
-        }}
+        onClick={() => navigateTo(ViewState.DASHBOARD)}
         className="lg:hidden fixed top-4 left-4 z-30 w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity bg-orange-600 rounded-sm"
       >
         <HaloLogo size={32} />
@@ -948,10 +929,7 @@ const App: React.FC = () => {
       {/* Mobile Bottom Navigation Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 z-40 flex items-center justify-around px-1 py-2 safe-area-inset-bottom">
         <button
-          onClick={() => {
-            setCurrentView(ViewState.DASHBOARD);
-            setIsMobileMenuOpen(false);
-          }}
+          onClick={() => navigateTo(ViewState.DASHBOARD)}
           className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.DASHBOARD 
               ? 'text-orange-600 dark:text-orange-500' 
@@ -963,11 +941,7 @@ const App: React.FC = () => {
         </button>
         
         <button
-          onClick={() => {
-            setSelectedClient(null);
-            setCurrentView(ViewState.CLIENTS);
-            setIsMobileMenuOpen(false);
-          }}
+          onClick={() => { setSelectedClient(null); navigateTo(ViewState.CLIENTS); }}
           className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.CLIENTS 
               ? 'text-orange-600 dark:text-orange-500' 
@@ -979,10 +953,7 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => {
-            setCurrentView(ViewState.CALENDAR);
-            setIsMobileMenuOpen(false);
-          }}
+          onClick={() => navigateTo(ViewState.CALENDAR)}
           className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.CALENDAR 
               ? 'text-orange-600 dark:text-orange-500' 
@@ -994,10 +965,7 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => {
-            setCurrentView(ViewState.MY_BUSINESS);
-            setIsMobileMenuOpen(false);
-          }}
+          onClick={() => navigateTo(ViewState.MY_BUSINESS)}
           className={`flex flex-col items-center justify-center gap-1 p-1.5 min-w-[48px] transition-colors ${
             currentView === ViewState.MY_BUSINESS 
               ? 'text-orange-600 dark:text-orange-500' 
@@ -1009,10 +977,7 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => {
-            setCurrentView(ViewState.SAVE_POINTS);
-            setIsMobileMenuOpen(false);
-          }}
+          onClick={() => navigateTo(ViewState.SAVE_POINTS)}
           className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[48px] transition-colors ${
             currentView === ViewState.SAVE_POINTS 
               ? 'text-orange-600 dark:text-orange-500' 
@@ -1024,10 +989,7 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => {
-            setCurrentView(ViewState.SETTINGS);
-            setIsMobileMenuOpen(false);
-          }}
+          onClick={() => navigateTo(ViewState.SETTINGS)}
           className={`flex flex-col items-center justify-center gap-1 p-2 min-w-[48px] transition-colors ${
             currentView === ViewState.SETTINGS 
               ? 'text-orange-600 dark:text-orange-500' 
