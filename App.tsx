@@ -19,7 +19,8 @@ import RatingPage from './components/RatingPage';
 import { useAuth, getUserEmailFromToken } from './services/authContext';
 import { AppSnapshot } from './services/snapshotMigration';
 import { loadUserData, saveUserData, logout as apiLogout } from './services/apiService';
-import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon, HardDrive } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar as CalendarIcon, Settings, Link, Briefcase, Moon, Sun, MessageSquare, Sparkles, Globe, Copy, Check, LogIn, LogOut, User, Menu, X as XIcon, HardDrive, Play, BookOpen } from 'lucide-react';
+import { toLocalDateStr } from './constants';
 
 const App: React.FC = () => {
   // Use auth context instead of local state to prevent auth loops
@@ -196,8 +197,8 @@ const App: React.FC = () => {
       };
       
       loadData();
-    } else if (!isAuthenticated) {
-      // Reset dataLoaded when user logs out
+    } else if (!isAuthenticated && !isDemoMode) {
+      // Reset dataLoaded when user logs out (but not in demo mode)
       setDataLoaded(false);
     }
   }, [authLoading, isAuthenticated, accessToken, dataLoaded]);
@@ -205,7 +206,7 @@ const App: React.FC = () => {
   // Save user data to API whenever it changes (if authenticated)
   // Debounce saves to avoid too many API calls
   useEffect(() => {
-    if (isAuthenticated && businessProfile.email && businessProfile.email !== DEFAULT_BUSINESS.email && dataLoaded) {
+    if (isAuthenticated && !isDemoMode && businessProfile.email && businessProfile.email !== DEFAULT_BUSINESS.email && dataLoaded) {
       // Debounce saves - wait 1 second after last change
       const timeoutId = setTimeout(async () => {
         if (isSaving) return; // Don't save if already saving
@@ -364,6 +365,7 @@ const App: React.FC = () => {
     setRatings([]);
     setBonusEntries([]);
     setDataLoaded(false); // Reset data loaded flag
+    setIsDemoMode(false); // Reset demo mode
     setCurrentView(ViewState.DASHBOARD); // Reset view on logout
   };
 
@@ -466,6 +468,106 @@ const App: React.FC = () => {
 
   const handleDeleteBonus = (id: string) => {
     setBonusEntries(prev => prev.filter(b => b.id !== id));
+  };
+
+  // Demo mode state
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  // Load demo data for non-authenticated users to explore the app
+  const loadDemoData = () => {
+    const today = new Date();
+    const todayStr = toLocalDateStr(today);
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    const tomorrowStr = toLocalDateStr(tomorrow);
+    const dayAfter = new Date(today); dayAfter.setDate(today.getDate() + 2);
+    const dayAfterStr = toLocalDateStr(dayAfter);
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const yesterdayStr = toLocalDateStr(yesterday);
+    const twoDaysAgo = new Date(today); twoDaysAgo.setDate(today.getDate() - 2);
+    const twoDaysAgoStr = toLocalDateStr(twoDaysAgo);
+
+    const demoProfile: BusinessProfile = {
+      name: 'Harmony Studio',
+      ownerName: 'Alex Rivera',
+      email: 'demo@halo.app',
+      category: 'Music Lessons',
+      themePreference: 'dark',
+      taxRate: 15,
+      monthlyRevenueGoal: 5000,
+      avatarUrl: '',
+      workingHours: { start: '09:00', end: '18:00' },
+      services: [
+        { id: 'svc-1', name: 'Piano Lesson', durationMin: 60, price: 75, description: '1-on-1 piano instruction', pricePerPerson: false },
+        { id: 'svc-2', name: 'Guitar Lesson', durationMin: 45, price: 60, description: 'Acoustic & electric guitar', pricePerPerson: false },
+        { id: 'svc-3', name: 'Group Workshop', durationMin: 90, price: 40, description: 'Group music workshop', pricePerPerson: true },
+        { id: 'svc-4', name: 'Voice Coaching', durationMin: 60, price: 80, description: 'Vocal training & technique', pricePerPerson: false },
+      ]
+    };
+
+    const demoClients: Client[] = [
+      { id: 'cl-1', name: 'Sarah Chen', email: 'sarah@email.com', phone: '555-0101', notes: ['Prefers afternoon slots', 'Working on Chopin pieces'], preferences: 'Classical piano', lastVisit: yesterdayStr },
+      { id: 'cl-2', name: 'Marcus Johnson', email: 'marcus@email.com', phone: '555-0102', notes: ['Beginner level', 'Interested in blues'], preferences: 'Blues guitar', lastVisit: twoDaysAgoStr },
+      { id: 'cl-3', name: 'Emily Park', email: 'emily@email.com', phone: '555-0103', notes: ['Advanced student', 'Preparing for recital'], preferences: 'Jazz piano', lastVisit: todayStr },
+      { id: 'cl-4', name: 'James Wright', email: 'james@email.com', phone: '555-0104', notes: ['New student'], preferences: 'Rock guitar', lastVisit: null },
+      { id: 'cl-5', name: 'Olivia Martinez', email: 'olivia@email.com', phone: '555-0105', notes: ['Voice & piano combo', 'Musical theater focus'], preferences: 'Broadway repertoire', lastVisit: yesterdayStr },
+    ];
+
+    const demoAppointments: Appointment[] = [
+      // Past completed appointments
+      { id: 'apt-1', clientId: 'cl-1', clientName: 'Sarah Chen', serviceId: 'svc-1', date: twoDaysAgoStr, time: '10:00', status: AppointmentStatus.COMPLETED },
+      { id: 'apt-2', clientId: 'cl-2', clientName: 'Marcus Johnson', serviceId: 'svc-2', date: twoDaysAgoStr, time: '14:00', status: AppointmentStatus.COMPLETED },
+      { id: 'apt-3', clientId: 'cl-5', clientName: 'Olivia Martinez', serviceId: 'svc-4', date: yesterdayStr, time: '11:00', status: AppointmentStatus.COMPLETED },
+      { id: 'apt-4', clientId: 'cl-3', clientName: 'Emily Park', serviceId: 'svc-1', date: yesterdayStr, time: '15:00', status: AppointmentStatus.COMPLETED },
+      // Today's appointments
+      { id: 'apt-5', clientId: 'cl-1', clientName: 'Sarah Chen', serviceId: 'svc-1', date: todayStr, time: '09:00', status: AppointmentStatus.CONFIRMED },
+      { id: 'apt-6', clientId: 'cl-3', clientName: 'Emily Park', serviceId: 'svc-1', date: todayStr, time: '11:00', status: AppointmentStatus.CONFIRMED },
+      { id: 'apt-7', clientId: 'cl-2', clientName: 'Marcus Johnson', serviceId: 'svc-2', date: todayStr, time: '14:00', status: AppointmentStatus.PENDING },
+      { id: 'apt-8', clientId: 'cl-5', clientName: 'Olivia Martinez', serviceId: 'svc-4', date: todayStr, time: '16:00', status: AppointmentStatus.CONFIRMED },
+      // A meeting event type
+      { id: 'apt-9', clientId: '', clientName: 'Staff sync-up', serviceId: 'EVENT', date: todayStr, time: '13:00', status: AppointmentStatus.CONFIRMED, eventType: 'MEETING' },
+      // Tomorrow
+      { id: 'apt-10', clientId: 'cl-4', clientName: 'James Wright', serviceId: 'svc-2', date: tomorrowStr, time: '10:00', status: AppointmentStatus.CONFIRMED, notes: 'First lesson — intro assessment' },
+      { id: 'apt-11', clientId: 'cl-1', clientName: 'Sarah Chen', serviceId: 'svc-1', date: tomorrowStr, time: '14:00', status: AppointmentStatus.CONFIRMED, recurrence: { frequency: 'WEEKLY', interval: 1 } },
+      // Group workshop
+      { id: 'apt-12', clientId: 'cl-3', clientName: 'Emily Park', clientIds: ['cl-3', 'cl-5'], clientNames: ['Emily Park', 'Olivia Martinez'], serviceId: 'svc-3', date: dayAfterStr, time: '10:00', status: AppointmentStatus.CONFIRMED, numberOfPeople: 2 },
+      // Task
+      { id: 'apt-13', clientId: '', clientName: 'Order new sheet music', serviceId: 'EVENT', date: tomorrowStr, time: '09:00', status: AppointmentStatus.CONFIRMED, eventType: 'TASK' },
+      // Blocked time
+      { id: 'apt-14', clientId: '', clientName: '', serviceId: 'svc-1', date: dayAfterStr, time: '12:00', status: AppointmentStatus.BLOCKED, notes: 'Lunch break' },
+    ];
+
+    const demoExpenses: Expense[] = [
+      { id: 'exp-1', name: 'Sheet Music Bundle', amount: 45, date: twoDaysAgoStr, category: 'Supplies' },
+      { id: 'exp-2', name: 'Piano Tuning', amount: 120, date: yesterdayStr, category: 'Other' },
+      { id: 'exp-3', name: 'Studio Rent', amount: 800, date: todayStr, category: 'Rent' },
+      { id: 'exp-4', name: 'Facebook Ads', amount: 50, date: todayStr, category: 'Marketing' },
+    ];
+
+    const demoBonusEntries: BonusEntry[] = [
+      { id: 'bon-1', description: 'Tip from Sarah', amount: 20, date: yesterdayStr },
+    ];
+
+    setBusinessProfile(demoProfile);
+    setClients(demoClients);
+    setAppointments(demoAppointments);
+    setExpenses(demoExpenses);
+    setRatings([]);
+    setBonusEntries(demoBonusEntries);
+    setIsDemoMode(true);
+    setDataLoaded(true);
+    navigateTo(ViewState.DASHBOARD);
+  };
+
+  const exitDemoMode = () => {
+    setBusinessProfile(DEFAULT_BUSINESS);
+    setClients([]);
+    setAppointments([]);
+    setExpenses([]);
+    setRatings([]);
+    setBonusEntries([]);
+    setIsDemoMode(false);
+    setDataLoaded(false);
+    navigateTo(ViewState.DASHBOARD);
   };
 
   // Restore from a Save Point snapshot — replaces entire local state
@@ -893,15 +995,23 @@ const App: React.FC = () => {
          {/* Background accent element */}
          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/5 blur-[150px] pointer-events-none"></div>
          
-         {/* Top Right Sign In/Out Button */}
+         {/* Top Right Actions */}
          <div className="fixed lg:absolute top-4 right-4 z-30">
            {isAuthenticated ? (
              <div className="flex items-center gap-3">
-               {businessProfile.email && (
+               {businessProfile.email && businessProfile.email !== 'demo@halo.app' && (
                  <span className="hidden md:block text-sm text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                    {businessProfile.email}
                  </span>
                )}
+               <button
+                 onClick={() => setShowOnboarding(true)}
+                 className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-200 dark:border-zinc-700"
+                 title="Tutorial"
+               >
+                 <BookOpen className="w-4 h-4 flex-shrink-0" />
+                 <span className="hidden sm:inline">Tutorial</span>
+               </button>
                <button
                  onClick={handleLogout}
                  className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-700"
@@ -910,14 +1020,42 @@ const App: React.FC = () => {
                  <span className="hidden sm:inline">Sign Out</span>
                </button>
              </div>
+           ) : isDemoMode ? (
+             <div className="flex items-center gap-2">
+               <span className="hidden md:block text-sm text-orange-500 uppercase tracking-wide font-bold">Demo Mode</span>
+               <button
+                 onClick={() => setShowOnboarding(true)}
+                 className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-200 dark:border-zinc-700"
+                 title="Tutorial"
+               >
+                 <BookOpen className="w-4 h-4 flex-shrink-0" />
+                 <span className="hidden sm:inline">Tutorial</span>
+               </button>
+               <button
+                 onClick={exitDemoMode}
+                 className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-700"
+               >
+                 <XIcon className="w-4 h-4 flex-shrink-0" />
+                 <span className="hidden sm:inline">Exit Demo</span>
+               </button>
+             </div>
            ) : (
-             <button
-               onClick={() => setShowLoginModal(true)}
-               className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-orange-600 text-black hover:bg-white transition-colors uppercase text-xs font-bold tracking-widest shadow-lg"
-             >
-               <LogIn className="w-4 h-4 flex-shrink-0" />
-               <span className="hidden sm:inline">Sign In</span>
-             </button>
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={loadDemoData}
+                 className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors uppercase text-xs font-bold tracking-widest border border-zinc-200 dark:border-zinc-700"
+               >
+                 <Play className="w-4 h-4 flex-shrink-0" />
+                 <span className="hidden sm:inline">Try Demo</span>
+               </button>
+               <button
+                 onClick={() => setShowLoginModal(true)}
+                 className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-orange-600 text-black hover:bg-white transition-colors uppercase text-xs font-bold tracking-widest shadow-lg"
+               >
+                 <LogIn className="w-4 h-4 flex-shrink-0" />
+                 <span className="hidden sm:inline">Sign In</span>
+               </button>
+             </div>
            )}
          </div>
 
@@ -1046,6 +1184,15 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Onboarding Tutorial */}
+      {showOnboarding && (
+        <OnboardingTutorial
+          ownerName={businessProfile.ownerName || 'there'}
+          businessName={businessProfile.name || 'your business'}
+          onComplete={() => setShowOnboarding(false)}
+        />
       )}
 
       {/* PWA: Offline indicator + Install prompt */}
