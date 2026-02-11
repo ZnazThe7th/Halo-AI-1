@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Appointment, BusinessProfile, AppointmentStatus, ClientRating } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
-import { Calendar, Clock, DollarSign, MoreVertical, Star, ArrowRight, CheckCircle, TrendingUp, Trash2, Edit3, X, Save, Ban, XCircle } from 'lucide-react';
+import { Calendar, Clock, DollarSign, MoreVertical, Star, ArrowRight, CheckCircle, TrendingUp, Trash2, Edit3, X, Save, Ban, XCircle, Video, Briefcase, ClipboardList } from 'lucide-react';
 import { formatTime, toLocalDateStr } from '../constants';
 
 interface DashboardProps {
@@ -502,20 +502,40 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     </div>
                                     <div className="flex-1">
                                         <div className="flex justify-between items-center mb-1">
-                                            <h3 className={`font-bold text-lg transition-colors ${isBlocked ? 'text-zinc-500 italic flex items-center gap-2' : 'text-zinc-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-500'}`}>
+                                            <h3 className={`font-bold text-lg transition-colors flex items-center gap-2 ${isBlocked ? 'text-zinc-500 italic' : 
+                                                appt.eventType === 'MEETING' ? 'text-purple-600 dark:text-purple-400 group-hover:text-purple-500' :
+                                                appt.eventType === 'INTERVIEW' ? 'text-cyan-600 dark:text-cyan-400 group-hover:text-cyan-500' :
+                                                appt.eventType === 'TASK' ? 'text-amber-600 dark:text-amber-400 group-hover:text-amber-500' :
+                                                'text-zinc-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-500'}`}>
                                                 {isBlocked && <Ban className="w-4 h-4"/>}
+                                                {appt.eventType === 'MEETING' && <Video className="w-4 h-4"/>}
+                                                {appt.eventType === 'INTERVIEW' && <Briefcase className="w-4 h-4"/>}
+                                                {appt.eventType === 'TASK' && <ClipboardList className="w-4 h-4"/>}
                                                 {appt.clientName || 'No client name'}
                                             </h3>
-                                            <span className={`text-[10px] px-2 py-1 uppercase tracking-wider font-bold rounded-sm ${
-                                                appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-100 dark:bg-zinc-800 text-green-600 dark:text-green-500 border border-zinc-200 dark:border-green-900' : 
-                                                appt.status === AppointmentStatus.COMPLETED ? 'bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-500 border border-zinc-200 dark:border-blue-900' :
-                                                appt.status === AppointmentStatus.CANCELLED ? 'bg-zinc-100 dark:bg-zinc-800 text-red-600 dark:text-red-500 border border-zinc-200 dark:border-red-900' :
-                                                appt.status === AppointmentStatus.BLOCKED ? 'bg-zinc-100 dark:bg-zinc-900/50 text-zinc-500 border border-zinc-200 dark:border-zinc-700 border-dashed' :
-                                                'bg-zinc-100 dark:bg-zinc-800 text-yellow-600 dark:text-yellow-500 border border-zinc-200 dark:border-yellow-900'
-                                            }`}>{appt.status}</span>
+                                            <div className="flex items-center gap-1.5">
+                                                {appt.eventType && appt.eventType !== 'APPOINTMENT' && (
+                                                    <span className={`text-[10px] px-2 py-1 uppercase tracking-wider font-bold rounded-sm ${
+                                                        appt.eventType === 'MEETING' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800' :
+                                                        appt.eventType === 'INTERVIEW' ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800' :
+                                                        'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                                    }`}>{appt.eventType}</span>
+                                                )}
+                                                <span className={`text-[10px] px-2 py-1 uppercase tracking-wider font-bold rounded-sm ${
+                                                    appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-100 dark:bg-zinc-800 text-green-600 dark:text-green-500 border border-zinc-200 dark:border-green-900' : 
+                                                    appt.status === AppointmentStatus.COMPLETED ? 'bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-500 border border-zinc-200 dark:border-blue-900' :
+                                                    appt.status === AppointmentStatus.CANCELLED ? 'bg-zinc-100 dark:bg-zinc-800 text-red-600 dark:text-red-500 border border-zinc-200 dark:border-red-900' :
+                                                    appt.status === AppointmentStatus.BLOCKED ? 'bg-zinc-100 dark:bg-zinc-900/50 text-zinc-500 border border-zinc-200 dark:border-zinc-700 border-dashed' :
+                                                    'bg-zinc-100 dark:bg-zinc-800 text-yellow-600 dark:text-yellow-500 border border-zinc-200 dark:border-yellow-900'
+                                                }`}>{appt.status}</span>
+                                            </div>
                                         </div>
                                         <p className="text-sm text-zinc-500 uppercase tracking-wide">
-                                            {isBlocked ? 'Blocked Period' : `${service?.name || 'Unknown Service'} • ${service?.durationMin} min`}
+                                            {isBlocked ? 'Blocked Period' : 
+                                             appt.eventType === 'MEETING' ? 'Meeting' + (appt.notes ? ` • ${appt.notes.substring(0, 40)}` : '') :
+                                             appt.eventType === 'INTERVIEW' ? 'Interview' + (appt.notes ? ` • ${appt.notes.substring(0, 40)}` : '') :
+                                             appt.eventType === 'TASK' ? 'Task' + (appt.notes ? ` • ${appt.notes.substring(0, 40)}` : '') :
+                                             `${service?.name || 'Unknown Service'} • ${service?.durationMin || 60} min`}
                                         </p>
                                         {scheduleTab === 'past' && (
                                             <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">

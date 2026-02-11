@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Appointment, AppointmentStatus, BusinessProfile, RecurrenceRule } from '../types';
-import { ChevronLeft, ChevronRight, Filter, Calendar as CalendarIcon, Clock, X, Edit3, User, Repeat, Save, Globe, Plus, CheckCircle, Ban, Lock, List, Grid, XCircle } from 'lucide-react';
+import { Appointment, AppointmentStatus, BusinessProfile, RecurrenceRule, EventType } from '../types';
+import { ChevronLeft, ChevronRight, Filter, Calendar as CalendarIcon, Clock, X, Edit3, User, Repeat, Save, Globe, Plus, CheckCircle, Ban, Lock, List, Grid, XCircle, Video, Briefcase, ClipboardList, FileText } from 'lucide-react';
 import { formatTime, toLocalDateStr } from '../constants';
 
 interface CalendarViewProps {
@@ -56,7 +56,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Appointment>>({});
   const [isNew, setIsNew] = useState(false);
-  const [entryType, setEntryType] = useState<'APPOINTMENT' | 'BLOCK'>('APPOINTMENT');
+  const [entryType, setEntryType] = useState<'APPOINTMENT' | 'MEETING' | 'INTERVIEW' | 'TASK' | 'BLOCK'>('APPOINTMENT');
   const [confirmModal, setConfirmModal] = useState<{ show: boolean; message: string; onConfirm: () => void } | null>(null);
 
   // Calendar Logic Helpers
@@ -215,7 +215,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
                      if (!seenIds.has(appt.id)) {
                          const service = business.services.find(s => s.id === appt.serviceId);
-                         const duration = service ? service.durationMin : 60;
+                         // Events without a real service get a default 30-min duration
+                         const isEvent = appt.eventType && appt.eventType !== 'APPOINTMENT';
+                         const duration = service ? service.durationMin : (isEvent ? 30 : 60);
 
                          // For recurring appointments shown on a different date, 
                          // set the date to the target date so completing works correctly
@@ -268,14 +270,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
   const handleCellClick = (date: Date, timeStr = '09:00') => {
       const dateStr = getDateString(date);
-      // Adjust dateStr if clicking in a timezone that pushes it to prev/next day in UTC? 
-      // For MVP simplicity, we assume new bookings are created on the clicked Date string in Base time.
       
       const defaultService = business.services[0];
-      if (!defaultService) {
-          alert('Please add a service first in Settings before creating appointments.');
-          return;
-      }
       
       const newAppt: Appointment = {
           id: Math.random().toString(36).substring(2, 9),
@@ -283,12 +279,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
           clientName: '',
           clientIds: [],
           clientNames: [],
-          serviceId: defaultService.id,
+          serviceId: defaultService?.id || 'EVENT',
           date: dateStr,
           time: timeStr,
           status: AppointmentStatus.CONFIRMED,
           recurrence: undefined,
-          numberOfPeople: defaultService.pricePerPerson ? 1 : undefined
+          numberOfPeople: defaultService?.pricePerPerson ? 1 : undefined,
+          eventType: 'APPOINTMENT'
       };
       
       setSelectedAppointment({ ...newAppt, displayTime: formatTime(timeStr) });
@@ -300,17 +297,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
 
   const handleEditClick = () => {
       if (selectedAppointment) {
-          setEditForm({ ...selectedAppointment });
+          // For recurring appointments, preserve the original base date so edits don't corrupt it
+          let formData = { ...selectedAppointment };
+          if (selectedAppointment.recurrence) {
+              const originalAppt = appointments.find(a => a.id === selectedAppointment.id);
+              if (originalAppt) {
+                  formData.date = originalAppt.date; // Use the base date, not the displayed date
+              }
+          }
+          setEditForm(formData);
           setIsEditing(true);
           setIsNew(false);
-          setEntryType(selectedAppointment.status === AppointmentStatus.BLOCKED ? 'BLOCK' : 'APPOINTMENT');
+          // Determine entry type from existing data
+          if (selectedAppointment.status === AppointmentStatus.BLOCKED) {
+              setEntryType('BLOCK');
+          } else if (selectedAppointment.eventType && selectedAppointment.eventType !== 'APPOINTMENT') {
+              setEntryType(selectedAppointment.eventType);
+          } else {
+              setEntryType('APPOINTMENT');
+          }
       }
   };
 
   const handleSave = () => {
       // Use requestAnimationFrame to defer save operation (non-blocking)
       requestAnimationFrame(() => {
-          // Validate required fields
+          // Validate required fields based on entry type
+          const isEventType = entryType === 'MEETING' || entryType === 'INTERVIEW' || entryType === 'TASK';
+          
           if (entryType === 'APPOINTMENT' && !editForm.serviceId) {
               alert('Please select a service');
               return;
@@ -318,6 +332,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
           
           if (entryType === 'APPOINTMENT' && !editForm.clientName && !editForm.clientNames?.length) {
               alert('Please enter a client name');
+              return;
+          }
+
+          if (entryType === 'TASK' && !editForm.clientName && !editForm.notes) {
+              alert('Please enter a task description');
+              return;
+          }
+
+          if ((entryType === 'MEETING' || entryType === 'INTERVIEW') && !editForm.clientName) {
+              alert(`Please enter ${entryType === 'MEETING' ? 'attendee name' : 'interviewee name'}`);
               return;
           }
 
@@ -335,7 +359,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
               updatedAppt.clientName = editForm.clientName || 'Blocked Time';
               updatedAppt.clientIds = ['BLOCK'];
               updatedAppt.clientNames = [editForm.clientName || 'Blocked Time'];
+              updatedAppt.eventType = undefined;
+          } else if (isEventType) {
+              // Events (Meeting, Interview, Task) don't need a service
+              updatedAppt.eventType = entryType as EventType;
+              updatedAppt.serviceId = 'EVENT';
+              if (updatedAppt.status === AppointmentStatus.BLOCKED) {
+                  updatedAppt.status = AppointmentStatus.CONFIRMED;
+              }
+              
+              if (entryType === 'TASK') {
+                  // Tasks use clientName as description
+                  updatedAppt.clientName = editForm.clientName || editForm.notes || 'Task';
+                  updatedAppt.clientId = 'TASK';
+                  updatedAppt.clientIds = ['TASK'];
+                  updatedAppt.clientNames = [updatedAppt.clientName];
+              } else {
+                  // Meeting/Interview: attendee name
+                  updatedAppt.clientName = editForm.clientName || '';
+                  updatedAppt.clientId = editForm.clientId || `temp_${Date.now()}`;
+                  updatedAppt.clientIds = [updatedAppt.clientId];
+                  updatedAppt.clientNames = [updatedAppt.clientName];
+              }
+              updatedAppt.notes = editForm.notes || '';
+              updatedAppt.numberOfPeople = undefined;
           } else {
+              // Standard APPOINTMENT
+              updatedAppt.eventType = 'APPOINTMENT';
+              
               // Ensure appointment has proper structure
               if (updatedAppt.status === AppointmentStatus.BLOCKED) {
                   updatedAppt.status = AppointmentStatus.CONFIRMED;
@@ -362,7 +413,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
               }
               
               // Ensure service is valid
-              if (!updatedAppt.serviceId || updatedAppt.serviceId === 'BLOCK') {
+              if (!updatedAppt.serviceId || updatedAppt.serviceId === 'BLOCK' || updatedAppt.serviceId === 'EVENT') {
                   const defaultService = business.services[0];
                   if (defaultService) {
                       updatedAppt.serviceId = defaultService.id;
@@ -654,12 +705,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 const latestAppt = appointments.find(a => a.id === appt.id) || appt;
-                                                setSelectedAppointment({ ...latestAppt, displayTime: appt.displayTime });
+                                                // Use appt.date (the target display date) for recurring appointments
+                                                setSelectedAppointment({ ...latestAppt, date: appt.date, displayTime: appt.displayTime });
                                                 setIsEditing(false); 
                                                 setIsNew(false); 
                                             }}
                                             className={`px-1 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] uppercase font-bold tracking-wide border-l-2 truncate cursor-pointer hover:brightness-110 transition-all ${
                                                 isBlocked ? 'bg-zinc-900/50 border-zinc-600 text-zinc-400 border-dashed italic' :
+                                                appt.eventType === 'MEETING' ? 'bg-purple-950/60 border-purple-500 text-purple-300' :
+                                                appt.eventType === 'INTERVIEW' ? 'bg-cyan-950/60 border-cyan-500 text-cyan-300' :
+                                                appt.eventType === 'TASK' ? 'bg-amber-950/60 border-amber-500 text-amber-300' :
                                                 appt.status === AppointmentStatus.CONFIRMED ? 'bg-zinc-800 border-emerald-500 text-white' : 
                                                 appt.status === AppointmentStatus.PENDING ? 'bg-zinc-800 border-yellow-500 text-yellow-500' :
                                                 appt.status === AppointmentStatus.COMPLETED ? 'bg-zinc-800 border-blue-500 text-blue-500' :
@@ -669,10 +724,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                         >
                                             {appt.recurrence && <Repeat className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-orange-500" />}
                                             {isBlocked && <Ban className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-zinc-500" />}
+                                            {appt.eventType === 'MEETING' && <Video className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-purple-400" />}
+                                            {appt.eventType === 'INTERVIEW' && <Briefcase className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-cyan-400" />}
+                                            {appt.eventType === 'TASK' && <ClipboardList className="inline w-2 h-2 sm:w-3 sm:h-3 mr-0.5 text-amber-400" />}
                                             <span className="mr-0.5 opacity-75 hidden sm:inline">{appt.displayTime}</span>
                                             <span className="sm:hidden">{appt._sortTime?.split(':')[0]}:{appt._sortTime?.split(':')[1]}</span>
                                             <span className="hidden sm:inline">
-                                              {appt.clientNames && appt.clientNames.length > 1 
+                                              {appt.eventType === 'TASK' ? ` ${appt.clientName || appt.notes || 'Task'}` :
+                                              appt.clientNames && appt.clientNames.length > 1 
                                                 ? ` ${appt.clientNames.length} clients` 
                                                 : ` ${appt.clientName || ''}`}
                                             </span>
@@ -771,6 +830,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                 }}
                                                 className={`absolute z-[5] inset-x-0.5 sm:inset-x-1 rounded-sm p-0.5 sm:p-2 text-[8px] sm:text-[10px] font-bold uppercase border-l-2 overflow-hidden cursor-pointer hover:z-10 hover:shadow-lg transition-all ${
                                                     isBlocked ? 'bg-zinc-900 border-zinc-600 text-zinc-400 border-dashed opacity-80' :
+                                                    appt.eventType === 'MEETING' ? 'bg-purple-900/80 border-purple-500 text-purple-100' :
+                                                    appt.eventType === 'INTERVIEW' ? 'bg-cyan-900/80 border-cyan-500 text-cyan-100' :
+                                                    appt.eventType === 'TASK' ? 'bg-amber-900/80 border-amber-500 text-amber-100' :
                                                     appt.status === AppointmentStatus.CANCELLED ? 'bg-red-900/80 border-red-500 text-red-100 line-through opacity-70' :
                                                     appt.status === AppointmentStatus.CONFIRMED ? 'bg-emerald-900/80 border-emerald-500 text-white' :
                                                     appt.status === AppointmentStatus.PENDING ? 'bg-yellow-900/80 border-yellow-500 text-yellow-100' :
@@ -781,9 +843,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                                <div className="flex justify-between">
                                                     <span>{appt.displayTime}</span>
                                                     {isBlocked && <Ban className="w-3 h-3" />}
+                                                    {appt.eventType === 'MEETING' && <Video className="w-3 h-3 text-purple-300" />}
+                                                    {appt.eventType === 'INTERVIEW' && <Briefcase className="w-3 h-3 text-cyan-300" />}
+                                                    {appt.eventType === 'TASK' && <ClipboardList className="w-3 h-3 text-amber-300" />}
                                                </div>
                                                <div className="truncate">
-                                                 {appt.clientNames && appt.clientNames.length > 1 
+                                                 {appt.eventType === 'TASK' ? (appt.clientName || appt.notes || 'Task') :
+                                                 appt.clientNames && appt.clientNames.length > 1 
                                                    ? `${appt.clientNames.length} clients` 
                                                    : (appt.clientName || 'No client name')}
                                                </div>
@@ -813,16 +879,42 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                       <div className="mb-4 sm:mb-6 border-b border-zinc-800 pb-3 sm:pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
                           <div className="flex-1 min-w-0">
                             <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white uppercase tracking-wider mb-1 break-words">
-                                {isEditing ? (isNew ? (entryType === 'BLOCK' ? 'Block Time' : 'New Appointment') : 'Edit Entry') : (selectedAppointment.status === AppointmentStatus.BLOCKED ? 'Blocked Period' : 'Appointment Details')}
+                                {isEditing 
+                                  ? (isNew 
+                                    ? (entryType === 'BLOCK' ? 'Block Time' : entryType === 'MEETING' ? 'New Meeting' : entryType === 'INTERVIEW' ? 'New Interview' : entryType === 'TASK' ? 'New Task' : 'New Appointment') 
+                                    : 'Edit Entry') 
+                                  : (selectedAppointment.status === AppointmentStatus.BLOCKED ? 'Blocked Period' 
+                                    : selectedAppointment.eventType === 'MEETING' ? 'Meeting Details'
+                                    : selectedAppointment.eventType === 'INTERVIEW' ? 'Interview Details'
+                                    : selectedAppointment.eventType === 'TASK' ? 'Task Details'
+                                    : 'Appointment Details')}
                             </h2>
                             <p className="text-zinc-500 font-mono text-xs sm:text-sm uppercase truncate">ID: {selectedAppointment.id}</p>
                           </div>
-                          {selectedAppointment.recurrence && !isEditing && (
-                              <div className="flex items-center gap-2 bg-zinc-900 border border-orange-900/50 px-2 sm:px-3 py-1 rounded-sm shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
+                            {selectedAppointment.eventType && selectedAppointment.eventType !== 'APPOINTMENT' && !isEditing && (
+                              <div className={`flex items-center gap-2 bg-zinc-900 border px-2 sm:px-3 py-1 rounded-sm ${
+                                selectedAppointment.eventType === 'MEETING' ? 'border-purple-900/50' :
+                                selectedAppointment.eventType === 'INTERVIEW' ? 'border-cyan-900/50' :
+                                'border-amber-900/50'
+                              }`}>
+                                  {selectedAppointment.eventType === 'MEETING' && <Video className="w-3 h-3 text-purple-500" />}
+                                  {selectedAppointment.eventType === 'INTERVIEW' && <Briefcase className="w-3 h-3 text-cyan-500" />}
+                                  {selectedAppointment.eventType === 'TASK' && <ClipboardList className="w-3 h-3 text-amber-500" />}
+                                  <span className={`text-[10px] uppercase font-bold tracking-widest ${
+                                    selectedAppointment.eventType === 'MEETING' ? 'text-purple-400' :
+                                    selectedAppointment.eventType === 'INTERVIEW' ? 'text-cyan-400' :
+                                    'text-amber-400'
+                                  }`}>{selectedAppointment.eventType}</span>
+                              </div>
+                            )}
+                            {selectedAppointment.recurrence && !isEditing && (
+                              <div className="flex items-center gap-2 bg-zinc-900 border border-orange-900/50 px-2 sm:px-3 py-1 rounded-sm">
                                   <Repeat className="w-3 h-3 text-orange-600" />
                                   <span className="text-[10px] uppercase font-bold text-orange-500 tracking-widest">Recurring</span>
                               </div>
-                          )}
+                            )}
+                          </div>
                       </div>
 
                       {!isEditing ? (
@@ -844,12 +936,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                     </div>
                               ) : (
                                 <div className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800">
-                                        <div className="w-12 h-12 bg-zinc-800 flex items-center justify-center text-zinc-400">
-                                            <User className="w-6 h-6" />
+                                        <div className={`w-12 h-12 flex items-center justify-center rounded-sm ${
+                                          selectedAppointment.eventType === 'MEETING' ? 'bg-purple-900/50 text-purple-400' :
+                                          selectedAppointment.eventType === 'INTERVIEW' ? 'bg-cyan-900/50 text-cyan-400' :
+                                          selectedAppointment.eventType === 'TASK' ? 'bg-amber-900/50 text-amber-400' :
+                                          'bg-zinc-800 text-zinc-400'
+                                        }`}>
+                                            {selectedAppointment.eventType === 'MEETING' ? <Video className="w-6 h-6" /> :
+                                             selectedAppointment.eventType === 'INTERVIEW' ? <Briefcase className="w-6 h-6" /> :
+                                             selectedAppointment.eventType === 'TASK' ? <ClipboardList className="w-6 h-6" /> :
+                                             <User className="w-6 h-6" />}
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Client{selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1 ? 's' : ''}</p>
-                                            {selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1 ? (
+                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                                              {selectedAppointment.eventType === 'MEETING' ? 'Attendee' :
+                                               selectedAppointment.eventType === 'INTERVIEW' ? 'Interviewee' :
+                                               selectedAppointment.eventType === 'TASK' ? 'Task Description' :
+                                               `Client${selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1 ? 's' : ''}`}
+                                            </p>
+                                            {(!selectedAppointment.eventType || selectedAppointment.eventType === 'APPOINTMENT') && selectedAppointment.clientNames && selectedAppointment.clientNames.length > 1 ? (
                                               <div className="space-y-1">
                                                 {selectedAppointment.clientNames.map((name, idx) => (
                                                   <p key={idx} className="text-lg font-bold text-white">{name}</p>
@@ -879,7 +984,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                     </div>
                               </div>
                               
-                              {selectedAppointment.status !== AppointmentStatus.BLOCKED && (
+                              {selectedAppointment.status !== AppointmentStatus.BLOCKED && (!selectedAppointment.eventType || selectedAppointment.eventType === 'APPOINTMENT') && (
                                 <div className="p-4 bg-zinc-900 border border-zinc-800">
                                         <div className="flex justify-between items-center mb-2">
                                             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Service</p>
@@ -916,6 +1021,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                                               })()}
                                             </div>
                                         </div>
+                                </div>
+                              )}
+
+                              {/* Notes section for events */}
+                              {selectedAppointment.notes && (
+                                <div className="p-4 bg-zinc-900 border border-zinc-800">
+                                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <FileText className="w-3 h-3" /> Notes
+                                  </p>
+                                  <p className="text-white text-sm whitespace-pre-wrap">{selectedAppointment.notes}</p>
                                 </div>
                               )}
 
@@ -993,36 +1108,80 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, business, onU
                           <div className="space-y-4 sm:space-y-6">
                               {/* Edit Form */}
                               
-                              {/* Type Switcher (Only if New) */}
+                              {/* Type Switcher */}
                               {isNew && (
-                                  <div className="flex border border-zinc-800 p-1 bg-zinc-900">
-                                      <button 
-                                        onClick={() => setEntryType('APPOINTMENT')}
-                                        className={`flex-1 py-2 sm:py-3 text-xs font-bold uppercase tracking-widest transition-colors ${entryType === 'APPOINTMENT' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
-                                      >
-                                          Appointment
-                                      </button>
-                                      <button 
-                                        onClick={() => setEntryType('BLOCK')}
-                                        className={`flex-1 py-2 sm:py-3 text-xs font-bold uppercase tracking-widest transition-colors ${entryType === 'BLOCK' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
-                                      >
-                                          Block Time
-                                      </button>
+                                  <div className="border border-zinc-800 p-1 bg-zinc-900">
+                                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-0.5">
+                                          <button 
+                                            onClick={() => setEntryType('APPOINTMENT')}
+                                            className={`py-2 sm:py-3 text-[9px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1 ${entryType === 'APPOINTMENT' ? 'bg-emerald-800 text-white' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
+                                          >
+                                              <CalendarIcon className="w-3 h-3 hidden sm:block" /> Appt
+                                          </button>
+                                          <button 
+                                            onClick={() => setEntryType('MEETING')}
+                                            className={`py-2 sm:py-3 text-[9px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1 ${entryType === 'MEETING' ? 'bg-purple-800 text-white' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
+                                          >
+                                              <Video className="w-3 h-3 hidden sm:block" /> Meet
+                                          </button>
+                                          <button 
+                                            onClick={() => setEntryType('INTERVIEW')}
+                                            className={`py-2 sm:py-3 text-[9px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1 ${entryType === 'INTERVIEW' ? 'bg-cyan-800 text-white' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
+                                          >
+                                              <Briefcase className="w-3 h-3 hidden sm:block" /> Intv
+                                          </button>
+                                          <button 
+                                            onClick={() => setEntryType('TASK')}
+                                            className={`py-2 sm:py-3 text-[9px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1 ${entryType === 'TASK' ? 'bg-amber-800 text-white' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
+                                          >
+                                              <ClipboardList className="w-3 h-3 hidden sm:block" /> Task
+                                          </button>
+                                          <button 
+                                            onClick={() => setEntryType('BLOCK')}
+                                            className={`py-2 sm:py-3 text-[9px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1 col-span-3 sm:col-span-1 ${entryType === 'BLOCK' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
+                                          >
+                                              <Ban className="w-3 h-3 hidden sm:block" /> Block
+                                          </button>
+                                      </div>
                                   </div>
                               )}
 
                               <div>
                                   <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">
-                                      {entryType === 'BLOCK' ? 'Block Reason / Label' : 'Client Name'}
+                                      {entryType === 'BLOCK' ? 'Block Reason / Label' : 
+                                       entryType === 'MEETING' ? 'Attendee / Title' :
+                                       entryType === 'INTERVIEW' ? 'Interviewee Name' :
+                                       entryType === 'TASK' ? 'Task Description' :
+                                       'Client Name'}
                                   </label>
                                   <input 
                                     type="text" 
                                     value={editForm.clientName || ''}
                                     onChange={e => setEditForm({...editForm, clientName: e.target.value})}
-                                    placeholder={entryType === 'BLOCK' ? 'e.g. Lunch Break, Closed' : 'Client Name'}
+                                    placeholder={entryType === 'BLOCK' ? 'e.g. Lunch Break, Closed' : 
+                                                 entryType === 'MEETING' ? 'e.g. Team Standup, John Smith' :
+                                                 entryType === 'INTERVIEW' ? 'e.g. Jane Doe' :
+                                                 entryType === 'TASK' ? 'e.g. Follow up with vendor' :
+                                                 'Client Name'}
                                     className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none text-sm sm:text-base"
                                   />
                               </div>
+
+                              {/* Notes field for events */}
+                              {(entryType === 'MEETING' || entryType === 'INTERVIEW' || entryType === 'TASK') && (
+                                <div>
+                                  <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">Notes</label>
+                                  <textarea 
+                                    value={editForm.notes || ''}
+                                    onChange={e => setEditForm({...editForm, notes: e.target.value})}
+                                    placeholder={entryType === 'MEETING' ? 'Agenda, location, dial-in info...' :
+                                                 entryType === 'INTERVIEW' ? 'Role, questions to ask...' :
+                                                 'Additional details...'}
+                                    rows={3}
+                                    className="w-full p-3 sm:p-4 bg-zinc-900 border border-zinc-700 text-white focus:border-orange-600 outline-none text-sm sm:text-base resize-none"
+                                  />
+                                </div>
+                              )}
                               
                               {entryType === 'APPOINTMENT' && (
                                 <>

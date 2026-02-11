@@ -96,6 +96,8 @@ export interface ClientRating {
   date: string; // When the rating was submitted
 }
 
+export type EventType = 'APPOINTMENT' | 'MEETING' | 'INTERVIEW' | 'TASK';
+
 export interface Appointment {
   id: string;
   clientId: string; // Keep for backward compatibility (first client if multiple)
@@ -112,6 +114,7 @@ export interface Appointment {
   rating?: ClientRating; // Rating for this appointment
   numberOfPeople?: number; // Number of people for price-per-person services
   overridePrice?: number; // Manual price override for revenue editing
+  eventType?: EventType; // Type of calendar entry (default: APPOINTMENT)
 }
 
 export interface AISummaryResponse {
