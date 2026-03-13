@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { BusinessProfile, Service } from '../types';
-import { Save, Plus, X, Edit3, Trash2, Store, Clock, DollarSign, Timer, Calculator, Moon, Sun, Camera, Upload, LogOut, Mail } from 'lucide-react';
+import { Plus, X, Edit3, Trash2, Store, DollarSign, Timer, Calculator, Moon, Sun, Camera, Upload, LogOut, Mail, Bell } from 'lucide-react';
 
 interface SettingsViewProps {
   business: BusinessProfile;
@@ -69,6 +69,32 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
       onUpdate({ ...business, themePreference: newTheme });
   };
 
+  const handleCalendarNotificationsToggle = async () => {
+    const nextEnabled = !business.calendarNotificationsEnabled;
+    if (!nextEnabled) {
+      onUpdate({ ...business, calendarNotificationsEnabled: false });
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      alert('Notifications are not supported on this device/browser.');
+      return;
+    }
+
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Please allow notifications to get calendar alerts.');
+        return;
+      }
+    } else if (Notification.permission !== 'granted') {
+      alert('Notifications are blocked. Enable them in browser settings to use calendar alerts.');
+      return;
+    }
+
+    onUpdate({ ...business, calendarNotificationsEnabled: true });
+  };
+
   const openEditService = (service: Service) => {
     setServiceForm({ ...service });
     setEditingService(service);
@@ -103,8 +129,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto pb-20">
-      <header className="mb-10 border-b border-zinc-200 dark:border-zinc-800 pb-6 flex justify-between items-end">
+    <div className="px-4 py-5 sm:p-6 lg:p-8 max-w-5xl mx-auto pb-24">
+      <header className="mb-8 lg:mb-10 border-b border-zinc-200 dark:border-zinc-800 pb-6 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end">
         <div>
             <h1 className="text-4xl font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-2">Settings</h1>
             <p className="text-zinc-500 mb-2">Manage your business profile and service menu.</p>
@@ -115,7 +141,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
         </div>
         
         {/* Appearance Toggle */}
-        <div className="flex flex-col items-end">
+        <div className="flex flex-col sm:items-end">
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Appearance</p>
             <button 
                 onClick={toggleTheme}
@@ -135,6 +161,41 @@ const SettingsView: React.FC<SettingsViewProps> = ({ business, onUpdate, onLogou
             </button>
         </div>
       </header>
+
+      {/* Notifications Section */}
+      <section className="mb-12">
+        <div className="flex justify-between items-end mb-4">
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+            <Bell className="w-5 h-5 text-orange-600" /> Notifications
+          </h2>
+        </div>
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide">Calendar event reminders</p>
+              <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+                Send a device notification 10 minutes before calendar events start.
+              </p>
+              {typeof window !== 'undefined' && 'Notification' in window && (
+                <p className="text-[11px] text-zinc-500 mt-2 uppercase tracking-wide">
+                  Permission: {Notification.permission}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleCalendarNotificationsToggle}
+              className={`w-full sm:w-auto min-w-[170px] px-4 py-2 font-bold uppercase tracking-widest text-xs border transition-colors ${
+                business.calendarNotificationsEnabled
+                  ? 'bg-orange-600 border-orange-600 text-black hover:bg-orange-500'
+                  : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:border-orange-600'
+              }`}
+              aria-pressed={!!business.calendarNotificationsEnabled}
+            >
+              {business.calendarNotificationsEnabled ? 'Notifications On' : 'Notifications Off'}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Business Profile Section */}
       <section className="mb-12">

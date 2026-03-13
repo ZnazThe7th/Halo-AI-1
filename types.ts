@@ -35,6 +35,7 @@ export interface BusinessProfile {
   category: string;
   avatarUrl?: string; // Profile picture
   themePreference: 'light' | 'dark';
+  calendarNotificationsEnabled?: boolean;
   services: Service[];
   taxRate: number; // Percentage (e.g., 20 for 20%)
   monthlyRevenueGoal: number; // New field for income goals

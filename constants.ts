@@ -32,6 +32,7 @@ export const DEFAULT_BUSINESS: BusinessProfile = {
   taxRate: 0,
   monthlyRevenueGoal: 0,
   themePreference: 'dark',
+  calendarNotificationsEnabled: false,
   workingHours: { start: "09:00", end: "18:00" },
   services: [],
 };

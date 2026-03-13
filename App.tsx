@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useRef } from 'react';
 import { ViewState, Client, BusinessProfile, Appointment, Expense, ClientRating, AppointmentStatus, BonusEntry } from './types';
 import { DEFAULT_BUSINESS } from './constants';
 import Dashboard from './components/Dashboard';
@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [linkCopied, setLinkCopied] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const notifiedEventKeysRef = useRef<Set<string>>(new Set());
 
   // Navigate to a view without blocking the main thread (fixes INP on nav buttons)
   const navigateTo = useCallback((view: ViewState) => {
@@ -61,6 +62,61 @@ const App: React.FC = () => {
   // Track if we've loaded data to prevent overwriting with defaults
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const parseLocalDate = (dateStr: string): Date => new Date(`${dateStr}T12:00:00`);
+
+  const isOccurrenceOnDate = (appt: Appointment, targetDateStr: string): boolean => {
+    if (appt.date === targetDateStr) return true;
+    if (!appt.recurrence) return false;
+
+    const apptDate = parseLocalDate(appt.date);
+    const targetDate = parseLocalDate(targetDateStr);
+    if (targetDate < apptDate) return false;
+    if (appt.recurrence.endDate && targetDate > parseLocalDate(appt.recurrence.endDate)) return false;
+
+    const diffTime = Math.abs(targetDate.getTime() - apptDate.getTime());
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (appt.recurrence.frequency === 'WEEKLY') {
+      if (appt.recurrence.daysOfWeek && appt.recurrence.daysOfWeek.length > 0) {
+        const targetDayOfWeek = targetDate.getDay();
+        if (!appt.recurrence.daysOfWeek.includes(targetDayOfWeek)) return false;
+        const getWeekStart = (d: Date) => {
+          const date = new Date(d);
+          date.setDate(date.getDate() - date.getDay());
+          date.setHours(12, 0, 0, 0);
+          return date;
+        };
+        const weeksDiff = Math.round(
+          (getWeekStart(targetDate).getTime() - getWeekStart(apptDate).getTime()) / (7 * 24 * 60 * 60 * 1000)
+        );
+        return weeksDiff >= 0 && weeksDiff % appt.recurrence.interval === 0;
+      }
+      if (diffDays % 7 !== 0) return false;
+      return (diffDays / 7) % appt.recurrence.interval === 0;
+    }
+
+    if (appt.recurrence.frequency === 'MONTHLY') {
+      if (targetDate.getDate() !== apptDate.getDate()) return false;
+      const monthDiff = (targetDate.getFullYear() - apptDate.getFullYear()) * 12 +
+                        (targetDate.getMonth() - apptDate.getMonth());
+      return monthDiff % appt.recurrence.interval === 0;
+    }
+
+    return false;
+  };
+
+  const isOverriddenRecurringOnDate = (appt: Appointment, dateStr: string): boolean => {
+    if (!appt.recurrence) return false;
+    return appointments.some(candidate =>
+      !candidate.recurrence &&
+      (candidate.id.endsWith('_completed') || candidate.id.endsWith('_cancelled')) &&
+      candidate.date === dateStr &&
+      candidate.time === appt.time &&
+      candidate.serviceId === appt.serviceId &&
+      candidate.clientName === appt.clientName
+    );
+  };
 
   // Load user data from API when authenticated
   useEffect(() => {
@@ -296,6 +352,59 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [businessProfile.themePreference]);
+
+  // Browser calendar reminders (10 minutes before start time)
+  useEffect(() => {
+    if (!businessProfile.calendarNotificationsEnabled) {
+      notifiedEventKeysRef.current.clear();
+      return;
+    }
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const notifyWindowMs = 10 * 60 * 1000;
+
+    const checkUpcomingEvents = () => {
+      const now = new Date();
+      const today = toLocalDateStr(now);
+
+      appointments.forEach(appt => {
+        if (
+          appt.status === AppointmentStatus.CANCELLED ||
+          appt.status === AppointmentStatus.COMPLETED ||
+          appt.status === AppointmentStatus.BLOCKED
+        ) {
+          return;
+        }
+        if (!isOccurrenceOnDate(appt, today) || isOverriddenRecurringOnDate(appt, today)) return;
+
+        const startTime = new Date(`${today}T${appt.time}:00`);
+        const timeUntilStart = startTime.getTime() - now.getTime();
+        if (timeUntilStart <= 0 || timeUntilStart > notifyWindowMs) return;
+
+        const reminderKey = `${appt.id}_${today}_${appt.time}`;
+        if (notifiedEventKeysRef.current.has(reminderKey)) return;
+
+        const serviceName = businessProfile.services.find(s => s.id === appt.serviceId)?.name;
+        const label = appt.eventType === 'TASK' ? 'Task reminder' : 'Calendar reminder';
+        const detail = appt.eventType === 'TASK'
+          ? (appt.notes || 'Your task starts soon.')
+          : `${appt.clientName || serviceName || 'Scheduled event'} at ${appt.time}`;
+
+        new Notification(label, {
+          body: detail,
+          tag: reminderKey,
+          icon: '/icon-192.svg',
+          badge: '/icon-192.svg'
+        });
+        notifiedEventKeysRef.current.add(reminderKey);
+      });
+    };
+
+    checkUpcomingEvents();
+    const intervalId = window.setInterval(checkUpcomingEvents, 30 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, [appointments, businessProfile.calendarNotificationsEnabled, businessProfile.services]);
 
   // Handlers
   const handleLogin = async (email?: string) => {
